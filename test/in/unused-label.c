@@ -1,4 +1,5 @@
+
 int main(void) {
-case 0: /* expect error */
+foo:
     return 0;
 }

@@ -4,7 +4,8 @@ public enum Type {
     WARNING         ("Warning"),
     NOTE            ("Note"),
     FATAL           ("Fatal Error"),
-    RECOVERABLE     ("Recoverable Error");
+    RECOVERABLE     ("Recoverable Error"),
+    BUG             ("Bug");
     
     public final String format;
     

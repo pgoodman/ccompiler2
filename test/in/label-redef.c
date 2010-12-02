@@ -1,6 +1,8 @@
 int main(void) {
 foo:
 bar:
-foo:
+foo: /* expect error */
+    goto foo;
+    goto bar;
     return 0;
 }

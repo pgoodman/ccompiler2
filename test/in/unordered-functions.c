@@ -1,4 +1,6 @@
 
+/* note: this is valid code and no errors are expected. */
+
 int a(void); /* forward declaration */
 
 int main(void) {

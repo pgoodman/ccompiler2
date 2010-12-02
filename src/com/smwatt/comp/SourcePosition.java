@@ -33,6 +33,6 @@ public class SourcePosition implements Comparable<SourcePosition> {
 	}
 	
 	public String toString() {
-		return "[\"" + _fname + "\", line " + _line + ", column " + _col +"]";
+		return "[\"" + _fname + "\", line " + (_line + 1) + ", column " + _col +"]";
 	}
 }

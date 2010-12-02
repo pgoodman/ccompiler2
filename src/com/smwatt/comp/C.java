@@ -183,6 +183,7 @@ public class C {
     	public CodeDeclarator        _head;
     	public List<CodeDeclaration> _ldecl;	// Old C parameter declarations
     	public CodeStatCompound      _body;
+    	public boolean               _is_static = false;
     	
     	public Hashtable<String,CodeStatLabeled> labels = new Hashtable<String,CodeStatLabeled>();
     	
@@ -200,6 +201,7 @@ public class C {
     static public class CodeDeclaration extends Code {
     	public List<CodeSpecifier>  _lspec;
     	public List<CodeDeclarator> _ldtor;
+    	public boolean              _is_static;
     	
     	CodeDeclaration(List<CodeSpecifier> lspec, List<CodeDeclarator> ldtor) 
     	{ 
@@ -372,8 +374,8 @@ public class C {
     	public void acceptVisitor(CodeVisitor v) { v.visit(this); }
     }
     static public class CodeEnumerator extends Code {
-    	CodeId _id;
-    	CodeExpr       _optValue;
+    	public CodeId _id;
+    	public CodeExpr       _optValue;
     	
     	CodeEnumerator(CodeId id) 
     	{ 
@@ -396,8 +398,8 @@ public class C {
     ///////////////////////////////////////////////////////////////////////////////
     
     static public class CodeDeclaratorArray extends CodeDeclarator {
-    	CodeDeclarator  _optAr;
-    	CodeExpr        _optIndex;
+    	public CodeDeclarator  _optAr;
+    	public CodeExpr        _optIndex;
     	
     	CodeDeclaratorArray(CodeDeclarator optAr, CodeExpr optIndex) 
     	{ 
@@ -417,7 +419,7 @@ public class C {
     }
     static public class CodeDeclaratorFunction extends CodeDeclarator {
     	public CodeDeclarator       _optFn;
-    	List<? extends Code> _argl;  // Either List<CodeDeclaration> or List<CodeIdentifier>
+    	public List<? extends Code> _argl;  // Either List<CodeDeclaration> or List<CodeIdentifier>
     	
     	CodeDeclaratorFunction(CodeDeclarator optFn, List<? extends Code> argl) 
     	{ 
@@ -436,8 +438,8 @@ public class C {
     	}
     }
     static public class CodeDeclaratorInit extends CodeDeclarator {
-    	CodeDeclarator  _dtor;
-    	CodeInitializer _initializer;
+    	public CodeDeclarator  _dtor;
+    	public CodeInitializer _initializer;
     	
     	CodeDeclaratorInit(CodeDeclarator dtor, CodeInitializer initializer)
     	{ _dtor = dtor; _initializer = initializer; }
@@ -453,8 +455,8 @@ public class C {
     	}
     }
     static public class CodeDeclaratorPointer extends CodeDeclarator {
-    	CodePointerStar _star;
-    	CodeDeclarator  _optPointee;
+    	public CodePointerStar _star;
+    	public CodeDeclarator  _optPointee;
     	
     	CodeDeclaratorPointer(CodePointerStar star, CodeDeclarator optPointee) 
     	{ _star = star; _optPointee = optPointee; }
@@ -469,8 +471,8 @@ public class C {
     	}
     }
     static public class CodeDeclaratorWidth extends CodeDeclarator {
-    	CodeDeclarator _dtor;
-    	CodeExpr       _width;
+    	public CodeDeclarator _dtor;
+    	public CodeExpr       _width;
     	
     	CodeDeclaratorWidth(CodeDeclarator dtor, CodeExpr width) 
     	{ _dtor = dtor; _width = width; }
@@ -488,7 +490,10 @@ public class C {
     static public class CodeDeclaratorId extends CodeDeclarator {
     	public CodeId _id;
     	
-    	CodeDeclaratorId(CodeId id) { _id = id; }
+    	CodeDeclaratorId(CodeId id) { 
+    	    _id = id;
+    	    copyPosition(id);
+	    }
     	
     	public void acceptVisitor(CodeVisitor v) { v.visit(this); }
     	

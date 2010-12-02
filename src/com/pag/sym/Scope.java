@@ -16,16 +16,52 @@ public class Scope {
     public final C.CodeFunction enclosing_func;
     public final Scope parent;
     
-    private Hashtable<String, CSymbol> symbols;
-    //private Hashtable<String, CType> types; // TODO
+    static private final int NAMES = 0;
+    static private final int TYPEDEF_NAMES = 1;
+    static private final int COMPOUND_TYPES = 2;
+    
+    private Hashtable<String, CSymbol>[] symbols;
+    
+    /**
+     * Static helpers.
+     */
+        
+    static private Hashtable<String,CSymbol>[] array(Hashtable<String,CSymbol> ... arr) {
+        return arr;
+    }
+    static private CSymbol or(CSymbol ... syms) {
+        for(CSymbol obj : syms) {
+            if(null != obj) {
+                return obj;
+            }
+        }
+        return null;
+    }
+    static private int table_id(Type type) {
+        switch(type) {
+            case TYPEDEF_NAME:
+                return TYPEDEF_NAMES;
+            case STRUCT_NAME:
+            case UNION_NAME:
+            case ENUM_NAME:
+                return COMPOUND_TYPES;
+            default:
+                return NAMES;
+        }
+    }
     
     /**
      * Constructors
      */
     
+    @SuppressWarnings("unchecked")
     public Scope(Scope pp, C.CodeFunction func) {
         parent = pp;
-        symbols = new Hashtable<String,CSymbol>();
+        symbols = array(
+            new Hashtable<String,CSymbol>(),
+            new Hashtable<String,CSymbol>(),
+            new Hashtable<String,CSymbol>()
+        );
         enclosing_func = func;
     }
     
@@ -37,12 +73,25 @@ public class Scope {
     public CSymbol get(String name) {
         CSymbol ee = null;
         Scope tab = this;
-        for(; null != tab; tab = tab.parent) {
-            ee = tab.symbols.get(name);
-            if(null != ee) {
-                break;
-            }
+        for(; null == ee && null != tab; tab = tab.parent) {
+            ee = or(
+                tab.symbols[NAMES].get(name), 
+                tab.symbols[TYPEDEF_NAMES].get(name), 
+                tab.symbols[COMPOUND_TYPES].get(name)
+            );
         }
+        return ee;
+    }
+    
+    public CSymbol get(String name, Type type) {
+        int tab_id = table_id(type);
+        Scope tab = this;
+        CSymbol ee = null;
+        
+        for(; null == ee && null != tab; tab = tab.parent) {
+            ee = tab.symbols[tab_id].get(name);
+        }
+        
         return ee;
     }
     
@@ -50,8 +99,8 @@ public class Scope {
      * Add a symbol to this table.
      */
     public void add(CSymbol sym) {
-        sym.scope = this;
-        symbols.put(sym.name, sym);
+        sym.scope = this;        
+        symbols[table_id(sym.type)].put(sym.name, sym);
     }
     
     /**

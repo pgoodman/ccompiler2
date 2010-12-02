@@ -50,6 +50,8 @@ public class FunctionVisitor implements CodeVisitor {
             spec.acceptVisitor(this);
         }
         
+        cc._is_static = found_static;
+        
         if(found_static) {
             return;
         }
@@ -81,16 +83,24 @@ public class FunctionVisitor implements CodeVisitor {
         func_id = null;
         found_static = false;
         
-        for(CodeSpecifier spec : cc._lspec) {
-            spec.acceptVisitor(this);
+        if(null != cc._lspec) {
+            for(CodeSpecifier spec : cc._lspec) {
+                spec.acceptVisitor(this);
+            }
         }
+        
+        cc._is_static = found_static;
         
         if(found_static) {
             return;
         }
         
-        for(CodeDeclarator decl : cc._ldtor) {
-            decl.acceptVisitor(this);
+        if(null != cc._ldtor) {
+            for(CodeDeclarator decl : cc._ldtor) {
+                if(null != decl) {
+                    decl.acceptVisitor(this);
+                }
+            }
         }
         
         if(null != func_id) {
@@ -195,13 +205,13 @@ public class FunctionVisitor implements CodeVisitor {
     }
 
     public void visit(CodeDeclaratorFunction cc) {
-        if(null != cc._optFn) {
-            cc._optFn.acceptVisitor(this);
-        }
+        //if(null != cc._optFn) {
+        //    cc._optFn.acceptVisitor(this);
+        //}
+        func_id = cc.getOptId();
     }
 
     public void visit(CodeDeclaratorInit cc) {
-        // TODO Auto-generated method stub
         
     }
 
@@ -216,7 +226,6 @@ public class FunctionVisitor implements CodeVisitor {
     }
 
     public void visit(CodeDeclaratorId cc) {
-        func_id = cc._id;
     }
 
     public void visit(CodePointerStar cc) {

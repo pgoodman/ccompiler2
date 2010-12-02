@@ -32,6 +32,7 @@ public class Env {
     public void pushScope(C.CodeFunction func) {
         scope = new Scope(scope, func);
         scopes.add(scope);
+        //System.out.println("pushing scope.");
     }
     
     /**
@@ -39,6 +40,7 @@ public class Env {
      */
     public void popScope() {
         scope = scope.parent;
+        //System.out.println("popping scope.");
     }
     
     public Scope getScope() {
@@ -59,5 +61,9 @@ public class Env {
      */
     public CSymbol getSymbol(String nn) {
         return scope.get(nn);
+    }
+    
+    public CSymbol getSymbol(String nn, Type tt) {
+        return scope.get(nn, tt);
     }
 }

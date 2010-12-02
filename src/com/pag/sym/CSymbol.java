@@ -27,9 +27,6 @@ public class CSymbol {
     /// was this symbol ever used?
     public boolean is_used = false;
     
-    /// is this symbol static?
-    public boolean is_static = false;
-    
     /**
      * Basic constructor.
      */
