@@ -140,6 +140,9 @@ public class C {
     
     
     static public abstract class CodeSpecifier extends Code {
+        public boolean isTypedef() {
+            return false;
+        }
     }
     
     static public abstract class CodeDeclarator extends Code {
@@ -330,6 +333,8 @@ public class C {
     	    _spec = spec; 
     	    copyPosition(spec);
 	    }
+    	
+    	public boolean isTypedef() { return _spec.isTypedef(); }
     	
     	public void acceptVisitor(CodeVisitor v) { v.visit(this); }
     }

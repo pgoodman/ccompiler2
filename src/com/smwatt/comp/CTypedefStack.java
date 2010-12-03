@@ -38,11 +38,14 @@ public class CTypedefStack implements CTypedefOracle {
 				if (ss.isTypedef()) isTypedef = true;
 			}
 		}
+		
 		if (!isTypedef) return;
 		
-		for (C.CodeDeclarator d: decl._ldtor) {
+		for (C.CodeDeclarator d : decl._ldtor) {
 		    d._is_typedef = true;
+		    
 			String tdname = getDeclaratorName(d);
+			
 			if (tdname != null) _tdnames.add(tdname);
 		}
 	}

@@ -36,6 +36,9 @@ public class NameVisitor implements CodeVisitor {
     // does this declaration look like a forward declaration?
     private boolean is_forward_declaration = false;
     
+    // is this a typedef?
+    private boolean in_typedef = false;
+    
     // counters for keeping track of the context
     private int declaration_count = 0;
     private int declarator_count = 0;
@@ -113,15 +116,22 @@ public class NameVisitor implements CodeVisitor {
     }
 
     public void visit(CodeDeclaration cc) {
+        
         cc._scope = env.getScope();   
         ++declaration_count;
         is_forward_declaration = (null == cc._ldtor || cc._ldtor.isEmpty());
-                
+        
+        boolean found_typedef = false;
+        
         if(null != cc._lspec) {
             for(CodeSpecifier spec : cc._lspec) {
+                found_typedef = !in_typedef && (found_typedef || spec.isTypedef());
                 spec.acceptVisitor(this);
             }
         }
+        
+        in_typedef = found_typedef;
+        
         if(!is_forward_declaration) {
             for(CodeDeclarator decl : cc._ldtor) {
                 if(null != decl) {
@@ -130,7 +140,9 @@ public class NameVisitor implements CodeVisitor {
             }
         }
         
+        in_typedef = false;
         is_forward_declaration = false;
+        
         --declaration_count;
     }
 
@@ -145,7 +157,8 @@ public class NameVisitor implements CodeVisitor {
         } else if(null == sym) {
             env.diag.report(E_VAR_UNKNOWN, cc, name);
         } else {
-            System.out.println(sym.name + " " + sym.type);
+            //System.out.println(sym.name + " " + sym.type);
+            // TODO ?
         }
     }
 
@@ -491,9 +504,10 @@ public class NameVisitor implements CodeVisitor {
         
         // global scope or function body, no symbol exists with same name
         } else if(0 == func_declarator_count || pointer_declarator_count > 0) {
+            //System.out.println("name=" + name +" in_typedef=" + in_typedef + " cc._is_typedef=" + cc._is_typedef);
             env.addSymbol(
                 name, 
-                cc._is_typedef ? Type.TYPEDEF_NAME : Type.VARIABLE, 
+                in_typedef || cc._is_typedef ? Type.TYPEDEF_NAME : Type.VARIABLE, 
                 cc
             );
         }
