@@ -15,6 +15,7 @@ public class Scope {
     
     public final C.CodeFunction enclosing_func;
     public final Scope parent;
+    public final int depth;
     
     static private final int NAMES = 0;
     static private final int TYPEDEF_NAMES = 1;
@@ -57,6 +58,7 @@ public class Scope {
     @SuppressWarnings("unchecked")
     public Scope(Scope pp, C.CodeFunction func) {
         parent = pp;
+        depth = null == pp ? 0 : pp.depth + 1;
         symbols = array(
             new Hashtable<String,CSymbol>(),
             new Hashtable<String,CSymbol>(),

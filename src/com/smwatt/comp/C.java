@@ -143,6 +143,9 @@ public class C {
     }
     
     static public abstract class CodeDeclarator extends Code {
+        
+        public boolean _is_typedef = false;
+        
     	/**
     	 * Return the id delcared.
     	 * If this is an "abstract declarator" (with no id),
@@ -184,6 +187,7 @@ public class C {
     	public List<CodeDeclaration> _ldecl;	// Old C parameter declarations
     	public CodeStatCompound      _body;
     	public boolean               _is_static = false;
+    	public Scope                 _internal_scope = null;
     	
     	public Hashtable<String,CodeStatLabeled> labels = new Hashtable<String,CodeStatLabeled>();
     	
@@ -505,8 +509,8 @@ public class C {
     	}
     }
     static public class CodePointerStar extends Code {
-    	List<CodeSpecifier>   _lspec;
-    	CodePointerStar       _optStar;
+    	public List<CodeSpecifier>   _lspec;
+    	public CodePointerStar       _optStar;
     	
     	CodePointerStar(
     		List<CodeSpecifier> lspec, 
@@ -519,14 +523,14 @@ public class C {
     static public abstract class CodeInitializer extends Code {
     }
     static public class CodeInitializerValue extends CodeInitializer {
-    	CodeExpr _value;
+    	public CodeExpr _value;
     	
     	CodeInitializerValue(CodeExpr value) { _value = value; }
     
     	public void acceptVisitor(CodeVisitor v) { v.visit(this); }
     }
     static public class CodeInitializerList extends CodeInitializer {
-    	List<CodeInitializer> _list;
+    	public List<CodeInitializer> _list;
     	
     	CodeInitializerList(List<CodeInitializer> list) { _list = list; }
     	

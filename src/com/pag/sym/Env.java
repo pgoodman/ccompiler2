@@ -29,10 +29,11 @@ public class Env {
     /**
      * Push a scope onto the scope stack.
      */
-    public void pushScope(C.CodeFunction func) {
+    public Scope pushScope(C.CodeFunction func) {
         scope = new Scope(scope, func);
         scopes.add(scope);
         //System.out.println("pushing scope.");
+        return scope;
     }
     
     /**

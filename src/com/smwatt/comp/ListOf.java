@@ -11,32 +11,49 @@ import java.util.ArrayList;
 
 //public class ListOf<T> extends ArrayList<T> { }
 
+import static com.smwatt.comp.C.*;
+
 class ListOf {
     
     @SuppressWarnings("serial")
-    public static class CCode            extends ArrayList<com.smwatt.comp.C.Code> { }
+    public static class CCode            extends ArrayList<Code> { }
     
     @SuppressWarnings("serial")
-    public static class CCodeDeclaration extends ArrayList<com.smwatt.comp.C.CodeDeclaration> { }
+    public static class CCodeDeclaration extends ArrayList<CodeDeclaration> { }
     
     @SuppressWarnings("serial")
-    public static class CCodeId  	     extends ArrayList<com.smwatt.comp.C.CodeId> { }
+    public static class CCodeId  	     extends ArrayList<CodeId> { }
     
     @SuppressWarnings("serial")
-    public static class CCodeSpecifier   extends ArrayList<com.smwatt.comp.C.CodeSpecifier> { }
+    public static class CCodeSpecifier   extends ArrayList<CodeSpecifier> {
+        /*public boolean add(CodeSpecifier spec) {
+            
+            if(spec instanceof CodeSpecifierQualifier
+            || spec instanceof CodeSpecifierStorage) {
+                return super.add(spec);
+            }
+                        
+            for(CodeSpecifier s : this) {
+                if(s instanceof CodeSpecifierType) {
+                    throw new AbortCompilation("Cannot have two types i");
+                }
+            }
+            return super.add(spec);
+        }*/
+    }
     
     @SuppressWarnings("serial")
-    public static class CCodeEnumerator  extends ArrayList<com.smwatt.comp.C.CodeEnumerator> { }
+    public static class CCodeEnumerator  extends ArrayList<CodeEnumerator> { }
     
     @SuppressWarnings("serial")
-    public static class CCodeDeclarator  extends ArrayList<com.smwatt.comp.C.CodeDeclarator> { }
+    public static class CCodeDeclarator  extends ArrayList<CodeDeclarator> { }
     
     @SuppressWarnings("serial")
-    public static class CCodeInitializer extends ArrayList<com.smwatt.comp.C.CodeInitializer> { }
+    public static class CCodeInitializer extends ArrayList<CodeInitializer> { }
     
     @SuppressWarnings("serial")
-    public static class CCodeStat        extends ArrayList<com.smwatt.comp.C.CodeStat> { }
+    public static class CCodeStat        extends ArrayList<CodeStat> { }
     
     @SuppressWarnings("serial")
-    public static class CCodeExpr        extends ArrayList<com.smwatt.comp.C.CodeExpr> { }
+    public static class CCodeExpr        extends ArrayList<CodeExpr> { }
 }
