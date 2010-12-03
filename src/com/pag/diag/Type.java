@@ -3,7 +3,7 @@ package com.pag.diag;
 public enum Type {
     WARNING         ("Warning"),
     NOTE            ("Note"),
-    FATAL           ("Error"),
+    ERROR           ("Error"),
     RECOVERABLE     ("Recoverable Error"),
     BUG             ("Bug");
     

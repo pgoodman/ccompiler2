@@ -9,7 +9,8 @@ import com.pag.sym.Type;
 
 /**
  * Go through the parse tree and look at the uses of different types of
- * names.
+ * names. The purpose of this pass is to find uses of undefined names,
+ * illegal re-definitions of names, note/warn about name shadowing, etc.
  * 
  * @author petergoodman
  *
@@ -31,6 +32,8 @@ public class NameVisitor implements CodeVisitor {
     private boolean in_func_head = false;
     private boolean in_func_decl_list = false;
     private boolean in_func_body = false;
+    
+    // does this declaration look like a forward declaration?
     private boolean is_forward_declaration = false;
     
     // counters for keeping track of the context
@@ -45,8 +48,6 @@ public class NameVisitor implements CodeVisitor {
     private int struct_count = 0;
     private int union_count = 0;
     private boolean in_struct = false;
-    
-    private boolean in_enum = false;
     
     public NameVisitor(Env ee) {
         env = ee;
@@ -174,7 +175,7 @@ public class NameVisitor implements CodeVisitor {
 
     public void visit(CodeEnumerationConstant cc) {
         cc._scope = env.getScope();
-        // TODO
+        //CSymbol sym = cc._s
     }
 
     public void visit(CodeDotDotDot cc) {
@@ -215,6 +216,7 @@ public class NameVisitor implements CodeVisitor {
     }
     
     private void handleNamedCompoundType(CodeSpecifierStructUnionEnum cc) {
+        
         String name = cc._optId._s;
         Type sym_type = cc instanceof CodeSpecifierStruct ? Type.STRUCT_NAME : (
             cc instanceof CodeSpecifierUnion ? Type.UNION_NAME : Type.ENUM_NAME
@@ -314,7 +316,6 @@ public class NameVisitor implements CodeVisitor {
         }
         if(null != cc._optParts) {
             in_struct = false;
-            in_enum = true;
             
             // !!! no scope is pushed because enumeration ids go into the
             //     enums enclosing scope.
@@ -323,13 +324,29 @@ public class NameVisitor implements CodeVisitor {
                 enumerator.acceptVisitor(this);
             }
             
-            in_enum = false;
             in_struct = struct_count > 0;
         }
     }
 
     public void visit(CodeEnumerator cc) {
         cc._scope = env.getScope();
+        
+        // make sure the value doesn't depend on the enumerator being
+        // defined
+        if(null != cc._optValue) {
+            cc._optValue.acceptVisitor(this);
+        }
+        
+        String name = cc._id._s;
+        CSymbol sym = env.getSymbol(name);
+        
+        if(null != sym && sym.scope == cc._scope) {
+            env.diag.report(
+                E_ENUMERATOR_SHADOW, cc, name, sym.code.getSourcePosition()
+            );
+        } else {
+            env.addSymbol(name, Type.ENUMERATOR, cc);
+        }
     }
 
     public void visit(CodeDeclaratorArray cc) {
@@ -676,7 +693,10 @@ public class NameVisitor implements CodeVisitor {
 
     public void visit(CodeExprCall cc) {
         cc._scope = env.getScope();
-        // TODO
+        for(CodeExpr expr : cc._argl) {
+            expr.acceptVisitor(this);
+        }
+        cc._fun.acceptVisitor(this);
     }
 
     public void visit(CodeExprSubscript cc) {
@@ -686,11 +706,11 @@ public class NameVisitor implements CodeVisitor {
     }
 
     public void visit(CodeExprField cc) {
-        // TODO
+        // TODO ?
     }
 
     public void visit(CodeExprPointsTo cc) {
-        // TODO
+        // TODO ?
     }
     
 }
