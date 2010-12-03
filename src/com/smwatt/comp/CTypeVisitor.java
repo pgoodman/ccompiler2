@@ -7,6 +7,8 @@
 
 package com.smwatt.comp;
 
+import static com.smwatt.comp.CType.*;
+
 public interface CTypeVisitor {
 	public void visit(CType            ct);
 	

@@ -8,13 +8,14 @@
 package com.smwatt.comp;
 
 import java.io.PrintStream;
+import static com.smwatt.comp.CType.*;
 
 public class CTypePrinter implements CTypeVisitor {
 		
 	CCodePrinter    _ccp;
 	XMLOutputStream _xo;
 	
-	CTypePrinter(PrintStream out) { 
+	public CTypePrinter(PrintStream out) { 
 		TabbingStream _tout = new TabbingStream(out);
 		_tout.setTabSize(4);
 		_ccp = new CCodePrinter(_tout);

@@ -4,355 +4,333 @@ import static com.smwatt.comp.C.*;
 import static com.pag.diag.Message.*;
 
 import com.pag.sym.Env;
-import com.smwatt.comp.C.Code;
-import com.smwatt.comp.C.CodeCharacterConstant;
+import com.smwatt.comp.CTypeBuilder;
+import com.smwatt.comp.CTypePrinter;
+import com.smwatt.comp.CType;
 import com.smwatt.comp.C.CodeDeclaration;
-import com.smwatt.comp.C.CodeDeclaratorArray;
-import com.smwatt.comp.C.CodeDeclaratorFunction;
-import com.smwatt.comp.C.CodeDeclaratorId;
-import com.smwatt.comp.C.CodeDeclaratorInit;
-import com.smwatt.comp.C.CodeDeclaratorPointer;
-import com.smwatt.comp.C.CodeDeclaratorWidth;
-import com.smwatt.comp.C.CodeDotDotDot;
-import com.smwatt.comp.C.CodeEnumerationConstant;
-import com.smwatt.comp.C.CodeEnumerator;
-import com.smwatt.comp.C.CodeExprAssignment;
-import com.smwatt.comp.C.CodeExprCall;
-import com.smwatt.comp.C.CodeExprCast;
-import com.smwatt.comp.C.CodeExprConditional;
-import com.smwatt.comp.C.CodeExprField;
-import com.smwatt.comp.C.CodeExprId;
-import com.smwatt.comp.C.CodeExprInfix;
-import com.smwatt.comp.C.CodeExprParen;
-import com.smwatt.comp.C.CodeExprPointsTo;
-import com.smwatt.comp.C.CodeExprPostfix;
-import com.smwatt.comp.C.CodeExprPrefix;
-import com.smwatt.comp.C.CodeExprSizeofType;
-import com.smwatt.comp.C.CodeExprSizeofValue;
-import com.smwatt.comp.C.CodeExprSubscript;
-import com.smwatt.comp.C.CodeFloatingConstant;
-import com.smwatt.comp.C.CodeFunction;
-import com.smwatt.comp.C.CodeId;
-import com.smwatt.comp.C.CodeInitializerList;
-import com.smwatt.comp.C.CodeInitializerValue;
-import com.smwatt.comp.C.CodeIntegerConstant;
-import com.smwatt.comp.C.CodePointerStar;
-import com.smwatt.comp.C.CodeSpecifierEnum;
-import com.smwatt.comp.C.CodeSpecifierQualifier;
-import com.smwatt.comp.C.CodeSpecifierStorage;
-import com.smwatt.comp.C.CodeSpecifierStruct;
-import com.smwatt.comp.C.CodeSpecifierType;
-import com.smwatt.comp.C.CodeSpecifierTypedefName;
-import com.smwatt.comp.C.CodeSpecifierUnion;
-import com.smwatt.comp.C.CodeStatBreak;
-import com.smwatt.comp.C.CodeStatCase;
-import com.smwatt.comp.C.CodeStatCompound;
-import com.smwatt.comp.C.CodeStatContinue;
-import com.smwatt.comp.C.CodeStatDefault;
-import com.smwatt.comp.C.CodeStatDo;
-import com.smwatt.comp.C.CodeStatExpression;
-import com.smwatt.comp.C.CodeStatFor;
-import com.smwatt.comp.C.CodeStatGoto;
-import com.smwatt.comp.C.CodeStatIf;
-import com.smwatt.comp.C.CodeStatLabeled;
-import com.smwatt.comp.C.CodeStatReturn;
-import com.smwatt.comp.C.CodeStatSwitch;
-import com.smwatt.comp.C.CodeStatWhile;
-import com.smwatt.comp.C.CodeString;
-import com.smwatt.comp.C.CodeTypeName;
-import com.smwatt.comp.C.CodeUnit;
-import com.smwatt.comp.C.CodeVisitor;
+
+import static com.smwatt.comp.CType.*;
 
 public class ExprTypeVisitor implements CodeVisitor {
     
     private Env env;
+    private CTypeBuilder builder;
+    private CTypePrinter printer;
     
     public ExprTypeVisitor(Env ee) {
         env = ee;
+        builder = new CTypeBuilder(ee);
+        printer = new CTypePrinter(System.out);
     }
 
     public void visit(Code cc) {
-        // TODO Auto-generated method stub
-        
+        cc.acceptVisitor(this);
     }
 
     public void visit(CodeUnit cc) {
-        // TODO Auto-generated method stub
-        
+        for(Code code : cc._l) {
+            code.acceptVisitor(this);
+        }
     }
 
     public void visit(CodeFunction cc) {
-        // TODO Auto-generated method stub
+        cc._type = builder.formType(cc._lspec, cc._head);
+        CTypeFunction type = (CTypeFunction) cc._type;
         
+        // handle old-style types
+        for(CodeDeclaration decl : cc._ldecl) {
+            for(CodeDeclarator dtor : decl._ldtor) {
+                CType arg_type = builder.formType(decl._lspec, dtor);
+                dtor._type = arg_type;
+                CodeId id = dtor.getOptId();
+                if(null != id) {
+                    id._type = dtor._type;
+                }
+                if(null != arg_type) {
+                    type._argTypes.add(arg_type);
+                }
+            }
+        }
     }
 
     public void visit(CodeDeclaration cc) {
-        // TODO Auto-generated method stub
-        
+        for(CodeDeclarator dtor : cc._ldtor) {
+            CType arg_type = builder.formType(cc._lspec, dtor);
+            dtor._type = arg_type;
+            
+            CodeId id = dtor.getOptId();
+            if(null != id) {
+                id._type = dtor._type;
+            }
+        }
     }
 
     public void visit(CodeId cc) {
-        // TODO Auto-generated method stub
-        
+        if(null == cc._type) {
+            
+        }
     }
 
-    public void visit(CodeTypeName cc) {
-        // TODO Auto-generated method stub
-        
-    }
+    public void visit(CodeTypeName cc) { }
 
-    public void visit(CodeString cc) {
-        // TODO Auto-generated method stub
-        
-    }
+    public void visit(CodeString cc) { }
 
     public void visit(CodeCharacterConstant cc) {
-        // TODO Auto-generated method stub
-        
+        cc._type = new CTypeChar();
     }
 
     public void visit(CodeIntegerConstant cc) {
-        // TODO Auto-generated method stub
-        
+        cc._type = new CTypeInt();
     }
 
     public void visit(CodeFloatingConstant cc) {
-        // TODO Auto-generated method stub
-        
+        // TODO: float or double?
+        cc._type = new CTypeFloat();
     }
 
     public void visit(CodeEnumerationConstant cc) {
-        // TODO Auto-generated method stub
-        
+        // TODO
     }
 
-    public void visit(CodeDotDotDot cc) {
-        // TODO Auto-generated method stub
-        
-    }
+    public void visit(CodeDotDotDot cc) { }
 
-    public void visit(CodeSpecifierStorage cc) {
-        // TODO Auto-generated method stub
-        
-    }
+    public void visit(CodeSpecifierStorage cc) { }
 
-    public void visit(CodeSpecifierQualifier cc) {
-        // TODO Auto-generated method stub
-        
-    }
+    public void visit(CodeSpecifierQualifier cc) { }
 
-    public void visit(CodeSpecifierType cc) {
-        // TODO Auto-generated method stub
-        
-    }
+    public void visit(CodeSpecifierType cc) { }
 
-    public void visit(CodeSpecifierTypedefName cc) {
-        // TODO Auto-generated method stub
-        
-    }
+    public void visit(CodeSpecifierTypedefName cc) { }
 
-    public void visit(CodeSpecifierStruct cc) {
-        // TODO Auto-generated method stub
-        
-    }
+    public void visit(CodeSpecifierStruct cc) { }
 
-    public void visit(CodeSpecifierUnion cc) {
-        // TODO Auto-generated method stub
-        
-    }
+    public void visit(CodeSpecifierUnion cc) { }
 
-    public void visit(CodeSpecifierEnum cc) {
-        // TODO Auto-generated method stub
-        
-    }
+    public void visit(CodeSpecifierEnum cc) { }
 
-    public void visit(CodeEnumerator cc) {
-        // TODO Auto-generated method stub
-        
-    }
+    public void visit(CodeEnumerator cc) { }
 
-    public void visit(CodeDeclaratorArray cc) {
-        // TODO Auto-generated method stub
-        
-    }
+    public void visit(CodeDeclaratorArray cc) { }
 
-    public void visit(CodeDeclaratorFunction cc) {
-        // TODO Auto-generated method stub
-        
-    }
+    public void visit(CodeDeclaratorFunction cc) { }
 
     public void visit(CodeDeclaratorInit cc) {
-        // TODO Auto-generated method stub
-        
+        cc._initializer.acceptVisitor(this);
     }
 
-    public void visit(CodeDeclaratorPointer cc) {
-        // TODO Auto-generated method stub
-        
-    }
+    public void visit(CodeDeclaratorPointer cc) { }
 
-    public void visit(CodeDeclaratorWidth cc) {
-        // TODO Auto-generated method stub
-        
-    }
+    public void visit(CodeDeclaratorWidth cc) { }
 
-    public void visit(CodeDeclaratorId cc) {
-        // TODO Auto-generated method stub
-        
-    }
+    public void visit(CodeDeclaratorId cc) { }
 
-    public void visit(CodePointerStar cc) {
-        // TODO Auto-generated method stub
-        
-    }
+    public void visit(CodePointerStar cc) { }
 
     public void visit(CodeInitializerValue cc) {
-        // TODO Auto-generated method stub
-        
+        cc._value.acceptVisitor(this);
+        cc._type = cc._value._type;
     }
 
     public void visit(CodeInitializerList cc) {
-        // TODO Auto-generated method stub
-        
+        for(CodeInitializer init : cc._list) {
+            init.acceptVisitor(this);
+        }
     }
 
-    public void visit(CodeStatBreak cc) {
-        // TODO Auto-generated method stub
-        
-    }
+    public void visit(CodeStatBreak cc) { }
 
     public void visit(CodeStatCase cc) {
-        // TODO Auto-generated method stub
+        cc._value.acceptVisitor(this);
+        // TODO check type of value
         
+        cc._stat.acceptVisitor(this);
     }
 
     public void visit(CodeStatCompound cc) {
-        // TODO Auto-generated method stub
-        
+        for(CodeDeclaration decl : cc._ldecl) {
+            decl.acceptVisitor(this);
+        }
+        for(CodeStat stat : cc._lstat) {
+            stat.acceptVisitor(this);
+        }
     }
 
-    public void visit(CodeStatContinue cc) {
-        // TODO Auto-generated method stub
-        
-    }
+    public void visit(CodeStatContinue cc) { }
 
     public void visit(CodeStatDefault cc) {
-        // TODO Auto-generated method stub
-        
+        cc._stat.acceptVisitor(this);
     }
 
     public void visit(CodeStatDo cc) {
-        // TODO Auto-generated method stub
-        
+        cc._stat.acceptVisitor(this);
+        cc._test.acceptVisitor(this);
+        // TODO check type of test
     }
 
     public void visit(CodeStatExpression cc) {
-        // TODO Auto-generated method stub
-        
+        if(null != cc._optExpr) {
+            cc._optExpr.acceptVisitor(this);
+            cc._type = cc._optExpr._type;
+        }
     }
 
     public void visit(CodeStatFor cc) {
-        // TODO Auto-generated method stub
         
+        if(null != cc._optInit) {
+            cc._optInit.acceptVisitor(this);
+        }
+        
+        if(null != cc._optTest) {
+            cc._optTest.acceptVisitor(this);
+            // TODO check types of test
+        }
+        
+        if(null != cc._optStep) {
+            cc._optStep.acceptVisitor(this);
+        }
+        
+        cc._stat.acceptVisitor(this);
     }
 
-    public void visit(CodeStatGoto cc) {
-        // TODO Auto-generated method stub
-        
-    }
+    public void visit(CodeStatGoto cc) { }
 
     public void visit(CodeStatIf cc) {
-        // TODO Auto-generated method stub
-        
+        // TODO check types of test
+        cc._test.acceptVisitor(this);
+        cc._thstat.acceptVisitor(this);
+        if(null != cc._optElstat) {
+            cc._optElstat.acceptVisitor(this);
+        }
     }
 
     public void visit(CodeStatLabeled cc) {
-        // TODO Auto-generated method stub
-        
+        cc._stat.acceptVisitor(this);
     }
 
     public void visit(CodeStatReturn cc) {
-        // TODO Auto-generated method stub
         
+        if(null != cc._optExpr) {
+            cc._optExpr.acceptVisitor(this);
+            cc._type = cc._optExpr._type;
+        } else {
+            cc._type = new CTypeVoid();
+        }
+        
+        // TODO check return type against function return type
     }
 
     public void visit(CodeStatSwitch cc) {
-        // TODO Auto-generated method stub
+        cc._expr.acceptVisitor(this);
+        // TODO check test type
         
+        cc._stat.acceptVisitor(this);
     }
 
     public void visit(CodeStatWhile cc) {
-        // TODO Auto-generated method stub
+        // TODO check test type
+        cc._test.acceptVisitor(this);
         
+        cc._stat.acceptVisitor(this);
     }
 
     public void visit(CodeExprAssignment cc) {
-        // TODO Auto-generated method stub
-        
+        // TODO check type of RHS against expected type of LHS
+        cc._a.acceptVisitor(this);
+        cc._b.acceptVisitor(this);
+        // TODO yield type
     }
 
     public void visit(CodeExprCast cc) {
-        // TODO Auto-generated method stub
+        cc._expr.acceptVisitor(this);
         
+        // TODO look for illegal cast
+        // TODO calculate type of cast
+        // TODO yield type
     }
 
     public void visit(CodeExprConditional cc) {
-        // TODO Auto-generated method stub
-        
+        // TODO check test type
+        // TODO check that both sides have same type
+        cc._test.acceptVisitor(this);
+        cc._thexpr.acceptVisitor(this);
+        cc._elexpr.acceptVisitor(this);
+        // TODO yield type
     }
 
     public void visit(CodeExprInfix cc) {
-        // TODO Auto-generated method stub
-        
+        // TODO check types of both sides with operator
+        cc._a.acceptVisitor(this);
+        cc._b.acceptVisitor(this);
+        // TODO yield type
     }
 
     public void visit(CodeExprParen cc) {
-        // TODO Auto-generated method stub
-        
+        cc._expr.acceptVisitor(this);
+        cc._type = cc._expr._type;
     }
 
     public void visit(CodeExprPostfix cc) {
-        // TODO Auto-generated method stub
-        
+        // TODO check type of expression with operator
+        cc._a.acceptVisitor(this);
+        // TODO yield type
     }
 
     public void visit(CodeExprPrefix cc) {
-        // TODO Auto-generated method stub
-        
+        // TODO check type of expression with operator
+        cc._a.acceptVisitor(this);
+        // TODO yield type
     }
 
     public void visit(CodeExprId cc) {
-        // TODO Auto-generated method stub
-        
+        cc._id.acceptVisitor(this);
+        cc._type = cc._id._type;
     }
 
     public void visit(CodeExprSizeofValue cc) {
-        // TODO Auto-generated method stub
-        
+        cc._expr.acceptVisitor(this);
+        // TODO check expression?
+        cc._type = new CSizeT();
     }
 
     public void visit(CodeExprSizeofType cc) {
-        // TODO Auto-generated method stub
-        
+        // TODO check type?
+        cc._tname.acceptVisitor(this);
+        cc._type = new CSizeT();
     }
 
     public void visit(CodeExprCall cc) {
-        // TODO Auto-generated method stub
+        // TODO: check func arg types against function type
+        cc._fun.acceptVisitor(this);
+        for(CodeExpr expr : cc._argl) {
+            expr.acceptVisitor(this);
+        }
         
+        // TODO yield type
     }
 
     public void visit(CodeExprSubscript cc) {
-        // TODO Auto-generated method stub
+        // TODO check type of index
+        cc._idx.acceptVisitor(this);
         
+        // TODO check type of expression
+        cc._arr.acceptVisitor(this);
+
+        // TODO yield type
     }
 
     public void visit(CodeExprField cc) {
-        // TODO Auto-generated method stub
+        // TODO check that the expr is a struct/union
+        cc._ob.acceptVisitor(this);
         
+        // TODO check that the struct/union has the field
+        // TODO yield type
     }
 
     public void visit(CodeExprPointsTo cc) {
-        // TODO Auto-generated method stub
+        // TODO check that the expr is a struct/union pointer
+        cc._ptr.acceptVisitor(this);
         
+        // TODO check that the struct/union has the field
+        // TODO yield type
     }
 }

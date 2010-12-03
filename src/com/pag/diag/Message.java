@@ -27,7 +27,8 @@ public enum Message {
     E_LABEL_REPEAT          (ERROR,         "The label '%%' was previously declared at %%."),
     N_LABEL_NOT_USED        (NOTE,          "The label '%%' was never used."),
     E_LABEL_UNKNOWN         (ERROR,         "The label '%%' was not defined in the function '%%'."),
-    E_CASE_OUTSIDE_SWITCH   (ERROR,         "Case statements must be enclosed by a switch statement."),
+    E_CASE_OUTSIDE_SWITCH   (ERROR,         "Case (case ...:) statements must be enclosed by a switch statement."),
+    E_DEFAULT_OUTSIDE_SWITCH(ERROR,         "Default (default:) statements must be enclosed by a switch statement."),
     
     B_UNKNOWN_TYPEDEF_NAME  (BUG,           "The typedef name '%%' is not known."),
     E_VAR_SHADOW_TYPEDEF    (ERROR,         "The type name '%%' was re-defined as another type of symbol at %%."),

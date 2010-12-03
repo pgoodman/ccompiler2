@@ -100,6 +100,7 @@ public class C {
     static public abstract class Code {
     	//CodeAnnotation	_annot = null;
         public Scope _scope = null;
+        public CType _type = null;
     	SourcePosition  _spos  = null;
     	
     	public void acceptVisitor(CodeVisitor v) { v.visit(this); }

@@ -444,7 +444,8 @@ public class NameVisitor implements CodeVisitor {
         } else if(in_func_decl_list) {
             
             // declaration without accompanying parameter
-            if(null == sym || cc._scope != sym.scope) {
+            if(0 == (union_count + struct_count)
+            && (null == sym || cc._scope != sym.scope)) {
                 env.diag.report(E_UNKNOWN_PARAM_DECL, cc, name);                
             }
         
@@ -556,8 +557,12 @@ public class NameVisitor implements CodeVisitor {
     }
 
     public void visit(CodeStatDefault cc) {
-        cc._scope = env.getScope();
-        cc._stat.acceptVisitor(this);
+        if(0 == switch_count) {
+            env.diag.report(E_DEFAULT_OUTSIDE_SWITCH, cc);
+        } else {
+            cc._scope = env.getScope();
+            cc._stat.acceptVisitor(this);
+        }
     }
 
     public void visit(CodeStatDo cc) {
