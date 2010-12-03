@@ -8,6 +8,7 @@ import java_cup.runtime.Symbol;
 import com.pag.comp.FunctionVisitor;
 import com.pag.comp.LabelVisitor;
 import com.pag.comp.NameVisitor;
+import com.pag.comp.Phase;
 import com.pag.diag.MessageHandler;
 import com.pag.diag.Reporter;
 import com.pag.sym.Env;
@@ -16,7 +17,7 @@ import com.smwatt.comp.C89Parser;
 import com.smwatt.comp.C89Scanner;
 
 public class Compiler {
-    public static void run(String[] args, MessageHandler handler) {        
+    public static void run(String[] args, MessageHandler handler, Phase ... phases) {        
         if(0 == args.length) {
             System.err.println(
                 "Error: Please supply a file name to a C source file."
@@ -52,8 +53,13 @@ public class Compiler {
                 NameVisitor names = new NameVisitor(env);
                 names.visit(ccu);
                 
+                // apply any final compilation phases
                 if(!Reporter.errorReported()) {
-                    
+                    for(Phase phase : phases) {
+                        if(!phase.apply(env, ccu)) {
+                            break;
+                        }
+                    }
                 }
             }
             
