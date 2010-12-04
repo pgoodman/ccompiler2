@@ -71,7 +71,7 @@ IType =		(u|U|l|L)*
 "/*"~"*/"					{ /* Ignore */ }
 [ \t\v\n\r\f]				{ /* Ignore */ }
 
-"auto"						{ return token    (CTokenType.AUTO); }
+"auto"						{ return specifier(CTokenType.AUTO); }
 "break"						{ return token    (CTokenType.BREAK); }
 "case"						{ return token    (CTokenType.CASE); }
 "char"						{ return specifier(CTokenType.CHAR); }

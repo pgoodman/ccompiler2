@@ -1,6 +1,6 @@
 package com.pag;
 
-import com.pag.comp.ExprTypeVisitor;
+import com.pag.comp.TypeInferenceVisitor;
 import com.pag.comp.Phase;
 import com.pag.diag.Message;
 import com.pag.diag.MessageHandler;
@@ -19,9 +19,12 @@ public class Question3 {
             public void report(Message msg, Code pos, Object... args) {
                 Reporter.reportLater(msg, pos.getSourcePosition(), args);
             }
-        }, new Phase() {
+        }, 
+        
+        // type inference phase of the compiler
+        new Phase() {
             public boolean apply(Env env, Code code) {
-                ExprTypeVisitor visitor = new ExprTypeVisitor(env);
+                TypeInferenceVisitor visitor = new TypeInferenceVisitor(env);
                 visitor.visit(code);
                 
                 return !Reporter.errorReported();

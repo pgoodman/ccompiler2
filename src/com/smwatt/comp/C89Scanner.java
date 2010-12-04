@@ -851,7 +851,7 @@ public class C89Scanner implements CScanner, java_cup.runtime.Scanner {
           }
         case 89: break;
         case 62: 
-          { return token    (CTokenType.AUTO);
+          { return specifier    (CTokenType.AUTO);
           }
         case 90: break;
         case 15: 

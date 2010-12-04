@@ -4,6 +4,7 @@ import static com.smwatt.comp.C.*;
 import static com.pag.diag.Message.*;
 
 import com.pag.sym.Env;
+import com.pag.sym.Type;
 import com.smwatt.comp.CTypeBuilder;
 import com.smwatt.comp.CTypePrinter;
 import com.smwatt.comp.CType;
@@ -11,16 +12,19 @@ import com.smwatt.comp.C.CodeDeclaration;
 
 import static com.smwatt.comp.CType.*;
 
-public class ExprTypeVisitor implements CodeVisitor {
+public class TypeInferenceVisitor implements CodeVisitor {
     
     private Env env;
     private CTypeBuilder builder;
     private CTypePrinter printer;
+    private CType STRING_TYPE;
     
-    public ExprTypeVisitor(Env ee) {
+    public TypeInferenceVisitor(Env ee) {
         env = ee;
         builder = new CTypeBuilder(ee);
         printer = new CTypePrinter(System.out);
+        
+        STRING_TYPE = new CTypePointer(new CTypeChar());
     }
 
     public void visit(Code cc) {
@@ -37,6 +41,8 @@ public class ExprTypeVisitor implements CodeVisitor {
         cc._type = builder.formType(cc._lspec, cc._head);
         CTypeFunction type = (CTypeFunction) cc._type;
         
+        cc._head.acceptVisitor(this);
+        
         // handle old-style types
         for(CodeDeclaration decl : cc._ldecl) {
             for(CodeDeclarator dtor : decl._ldtor) {
@@ -49,12 +55,15 @@ public class ExprTypeVisitor implements CodeVisitor {
                 if(null != arg_type) {
                     type._argTypes.add(arg_type);
                 }
+                
+                dtor.acceptVisitor(this);
             }
         }
     }
 
     public void visit(CodeDeclaration cc) {
         for(CodeDeclarator dtor : cc._ldtor) {
+            
             CType arg_type = builder.formType(cc._lspec, dtor);
             dtor._type = arg_type;
             
@@ -62,34 +71,52 @@ public class ExprTypeVisitor implements CodeVisitor {
             if(null != id) {
                 id._type = dtor._type;
             }
+            
+            // we need to check the type of constant expressions
+            dtor.acceptVisitor(this);
+            
+            printer.print(dtor._type);
+        }
+        
+        // make sure we can typecheck specifiers even in the absence of
+        // a declarator
+        if(cc._ldtor.isEmpty()) {
+            cc._type = builder.formTypeFromSpecifiers(cc._lspec);
         }
     }
 
     public void visit(CodeId cc) {
-        if(null == cc._type) {
-            
-        }
+        // TODO?
     }
 
-    public void visit(CodeTypeName cc) { }
+    public void visit(CodeTypeName cc) {
+        cc._type = builder.formType(cc._lspec, cc._dtor);
+    }
 
-    public void visit(CodeString cc) { }
+    public void visit(CodeString cc) {
+        cc._type = STRING_TYPE;
+        cc._const_val = cc._s;
+    }
 
     public void visit(CodeCharacterConstant cc) {
         cc._type = new CTypeChar();
+        char[] as_array = cc._s.toCharArray();
+        cc._const_val = new Integer(as_array[0]);
     }
 
     public void visit(CodeIntegerConstant cc) {
         cc._type = new CTypeInt();
+        cc._const_val = Integer.valueOf(cc._s);
     }
 
     public void visit(CodeFloatingConstant cc) {
         // TODO: float or double?
         cc._type = new CTypeFloat();
+        cc._const_val = Float.valueOf(cc._s);
     }
 
     public void visit(CodeEnumerationConstant cc) {
-        // TODO
+        cc._type = cc._scope.get(cc._s, Type.ENUMERATOR).code._type;
     }
 
     public void visit(CodeDotDotDot cc) { }
@@ -102,29 +129,87 @@ public class ExprTypeVisitor implements CodeVisitor {
 
     public void visit(CodeSpecifierTypedefName cc) { }
 
-    public void visit(CodeSpecifierStruct cc) { }
+    public void visit(CodeSpecifierStruct cc) {
+        if(null != cc._optParts) {
+            for(Code part : cc._optParts) {
+                part.acceptVisitor(this);
+            }
+        }
+    }
 
-    public void visit(CodeSpecifierUnion cc) { }
+    public void visit(CodeSpecifierUnion cc) {
+        if(null != cc._optParts) {
+            for(Code part : cc._optParts) {
+                part.acceptVisitor(this);
+            }
+        }
+    }
 
-    public void visit(CodeSpecifierEnum cc) { }
+    public void visit(CodeSpecifierEnum cc) {
+        if(null != cc._optParts) {
+            for(Code part : cc._optParts) {
+                part.acceptVisitor(this);
+            }
+        }
+    }
 
-    public void visit(CodeEnumerator cc) { }
+    public void visit(CodeEnumerator cc) {
+        if(null != cc._optValue) {
+            cc._optValue.acceptVisitor(this);
+            // TODO: check that type is integer
+        }
+    }
 
-    public void visit(CodeDeclaratorArray cc) { }
+    public void visit(CodeDeclaratorArray cc) {
+        if(null != cc._optIndex) {
+            cc._optIndex.acceptVisitor(this);
+            // TODO check that type is integer
+        }
+    }
 
-    public void visit(CodeDeclaratorFunction cc) { }
+    public void visit(CodeDeclaratorFunction cc) {
+        if(null != cc._argl) {
+            for(Code arg : cc._argl) {
+                arg.acceptVisitor(this);
+            }
+        }
+        
+        // note: functions can't return arrays, and so we don't need
+        //       to worry about checking any types of constant expressions
+        //       in the return type of a function.
+    }
 
     public void visit(CodeDeclaratorInit cc) {
         cc._initializer.acceptVisitor(this);
+        cc._dtor.acceptVisitor(this);
+        cc._initializer.acceptVisitor(this);
     }
 
-    public void visit(CodeDeclaratorPointer cc) { }
+    public void visit(CodeDeclaratorPointer cc) {
+        if(null != cc._optPointee) {
+            cc._optPointee.acceptVisitor(this);
+        }
+        cc._star.acceptVisitor(this);
+    }
 
-    public void visit(CodeDeclaratorWidth cc) { }
+    public void visit(CodeDeclaratorWidth cc) {
+        // TODO check that width type is integer
+        // TODO check that type of var with with is integral
+        if(null != cc._dtor) {
+            cc._dtor.acceptVisitor(this);
+        }
+        cc._width.acceptVisitor(this);
+    }
 
-    public void visit(CodeDeclaratorId cc) { }
+    public void visit(CodeDeclaratorId cc) {
+        // TODO ?
+    }
 
-    public void visit(CodePointerStar cc) { }
+    public void visit(CodePointerStar cc) {
+        if(null != cc._optStar) {
+            cc._optStar.acceptVisitor(this);
+        }
+    }
 
     public void visit(CodeInitializerValue cc) {
         cc._value.acceptVisitor(this);
@@ -132,9 +217,12 @@ public class ExprTypeVisitor implements CodeVisitor {
     }
 
     public void visit(CodeInitializerList cc) {
+        CodeInitializer last = null;
         for(CodeInitializer init : cc._list) {
             init.acceptVisitor(this);
+            last = init;
         }
+        cc._type = last._type;
     }
 
     public void visit(CodeStatBreak cc) { }
@@ -171,6 +259,8 @@ public class ExprTypeVisitor implements CodeVisitor {
         if(null != cc._optExpr) {
             cc._optExpr.acceptVisitor(this);
             cc._type = cc._optExpr._type;
+        } else {
+            cc._type = new CTypeVoid();
         }
     }
 
@@ -237,15 +327,17 @@ public class ExprTypeVisitor implements CodeVisitor {
         // TODO check type of RHS against expected type of LHS
         cc._a.acceptVisitor(this);
         cc._b.acceptVisitor(this);
-        // TODO yield type
+        
+        cc._type = cc._a._type;
     }
 
     public void visit(CodeExprCast cc) {
         cc._expr.acceptVisitor(this);
+        cc._typename.acceptVisitor(this);
         
         // TODO look for illegal cast
-        // TODO calculate type of cast
-        // TODO yield type
+
+        cc._type = cc._typename._type;
     }
 
     public void visit(CodeExprConditional cc) {
@@ -254,7 +346,7 @@ public class ExprTypeVisitor implements CodeVisitor {
         cc._test.acceptVisitor(this);
         cc._thexpr.acceptVisitor(this);
         cc._elexpr.acceptVisitor(this);
-        // TODO yield type
+        // TODO yield type, LUB of cc._thexpr and cc.elexpr
     }
 
     public void visit(CodeExprInfix cc) {
@@ -276,14 +368,16 @@ public class ExprTypeVisitor implements CodeVisitor {
     }
 
     public void visit(CodeExprPrefix cc) {
+        
+        // TODO function pointers?
+        
         // TODO check type of expression with operator
         cc._a.acceptVisitor(this);
         // TODO yield type
     }
 
     public void visit(CodeExprId cc) {
-        cc._id.acceptVisitor(this);
-        cc._type = cc._id._type;
+        cc._type = env.getSymbol(cc._id._s).code._type;
     }
 
     public void visit(CodeExprSizeofValue cc) {
@@ -305,7 +399,9 @@ public class ExprTypeVisitor implements CodeVisitor {
             expr.acceptVisitor(this);
         }
         
+        // TODO function pointers?
         // TODO yield type
+        
     }
 
     public void visit(CodeExprSubscript cc) {

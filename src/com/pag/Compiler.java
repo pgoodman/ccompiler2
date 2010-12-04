@@ -2,6 +2,7 @@ package com.pag;
 
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.util.LinkedList;
 
 import java_cup.runtime.Symbol;
 
@@ -17,6 +18,7 @@ import com.smwatt.comp.C89Parser;
 import com.smwatt.comp.C89Scanner;
 
 public class Compiler {
+        
     public static void run(String[] args, MessageHandler handler, Phase ... phases) {        
         if(0 == args.length) {
             System.err.println(
@@ -32,7 +34,7 @@ public class Compiler {
             
             scanner.setFilename(args[0]);
 
-            Env env = new Env(handler);
+            Env env = new Env(handler, phases);
             
             // parse the code
             Symbol parse_tree = parser.parse();
@@ -53,9 +55,12 @@ public class Compiler {
                 NameVisitor names = new NameVisitor(env);
                 names.visit(ccu);
                 
-                // apply any final compilation phases
+                // apply the small and big compilation phases in sequence
                 if(!Reporter.errorReported()) {
-                    for(Phase phase : phases) {
+                    
+                    for(Phase phase = env.popPhase(); 
+                        null != phase; 
+                        phase = env.popPhase()) {
                         if(!phase.apply(env, ccu)) {
                             break;
                         }

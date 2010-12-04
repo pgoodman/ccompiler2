@@ -54,7 +54,9 @@ public class Reporter {
      */
     static private String makeReport(Message msg, SourcePosition pos, Object[] args) {
         
-        if(Type.ERROR == msg.type || Type.RECOVERABLE == msg.type) {
+        if(Type.ERROR == msg.type 
+        || Type.RECOVERABLE == msg.type
+        || Type.BUG == msg.type) {
             found_error = true;
         }
         

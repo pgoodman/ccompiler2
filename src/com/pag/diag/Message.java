@@ -50,7 +50,24 @@ public enum Message {
     E_COMPOUND_TYPE_REDEF   (ERROR,         "The type '%% %%' cannot be re-declared in this scope. Previous declaration was at %%."),
     N_COMPOUND_TYPE_REDEF   (NOTE,          "Forward declaration of type '%% %%' is redundant. Previous declaration was at %%."),
     
-    E_ENUMERATOR_SHADOW     (ERROR,         "The enumeration constant '%%' shadows a symbol of the same name which was declared at %%.");
+    E_ENUMERATOR_SHADOW     (ERROR,         "The enumeration constant '%%' shadows a symbol of the same name which was declared at %%."),
+    
+    E_SIGNED_NON_INTEGRAL_T (ERROR,         "Only integral types can be un/signed."),
+    E_SHORT_LONG_NON_INTEGRAL_T (ERROR,     "Only integral/floating point types can be short/long."),
+    E_SHORT_LONG_T          (ERROR,         "An integral type cannot be both short and long."),
+    E_MULTI_SIGNED          (ERROR,         "An integral type can have only one un/signed specifier."),
+    E_MULTI_QUALIFIER       (ERROR,         "A type can have only one const/volatile qualifier."),
+    E_TOO_MANY_TYPE_SPECS   (ERROR,         "Too many type specifiers in type."),
+    
+    E_INCOMPLETE_MULTI_ARRAY(ERROR,         "Multidimensional array has incomplete type. Only the first dimension of a multi-dimensional array can be missing."),
+    E_AUTO_REG_OUTSIDE_FUNC (ERROR,         "auto/register storage classes are not allowed outside of a function scope."),
+    
+    E_ARRAY_SIZE_NOT_POS    (ERROR,         "Arrays must have a non-zero positive size. The size of the array ends up being %%."),
+    E_FUNC_RETURN_ARRAY     (ERROR,         "Functions are not allowed to return arrays."),
+    E_POINTER_MULTI_QUALIF  (ERROR,         "Pointer declarators can only have one type qualifier."),
+    R_FIELD_WIDTH_STRUCT_ONLY(RECOVERABLE,  "Field widths can only be specified inside of structs."),
+    
+    B_BUG                   (BUG,           "The following bug was reported: %%.");
     
     public final Type type;
     public final String format;

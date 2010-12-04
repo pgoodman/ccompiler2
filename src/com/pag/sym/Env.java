@@ -3,6 +3,8 @@ package com.pag.sym;
 import java.util.List;
 import java.util.LinkedList;
 
+import com.pag.comp.ExpressionInterpreterVisitor;
+import com.pag.comp.Phase;
 import com.pag.diag.MessageHandler;
 import com.smwatt.comp.C;
 
@@ -17,13 +19,26 @@ public class Env {
     /// handler for diagnostic messages
     final public MessageHandler diag;
     
+    /// compiler phases
+    private LinkedList<Phase> small_phases = new LinkedList<Phase>();
+    private LinkedList<Phase> big_phases = new LinkedList<Phase>();
+    
+    /// interpreter
+    private ExpressionInterpreterVisitor interpreter;
+    
     /**
      * Constructor, take in a message handler.
      * @param handler
      */
-    public Env(MessageHandler handler) {
+    public Env(MessageHandler handler, Phase ... phases) {
         diag = handler;
         pushScope(null);
+        
+        for(Phase phase : phases) {
+            big_phases.addLast(phase);
+        }
+        
+        interpreter = new ExpressionInterpreterVisitor(this);
     }
     
     /**
@@ -66,5 +81,30 @@ public class Env {
     
     public CSymbol getSymbol(String nn, Type tt) {
         return scope.get(nn, tt);
+    }
+    
+    /**
+     * Add a new phase into the compiler.
+     */
+    public void addPhase(Phase phase) {
+        small_phases.addLast(phase);
+    }
+    
+    public Phase popPhase() {
+        if(!small_phases.isEmpty()) {
+            return small_phases.remove();
+        }
+        if(!big_phases.isEmpty()) {
+            return big_phases.remove();
+        }
+        return null;
+    }
+    
+    /**
+     * Interpret some CCode object.
+     */
+    public Object interpret(C.Code cc) {
+        interpreter.visit(cc);
+        return interpreter.yield();
     }
 }

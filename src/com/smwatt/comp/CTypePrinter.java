@@ -8,12 +8,17 @@
 package com.smwatt.comp;
 
 import java.io.PrintStream;
+import java.util.HashSet;
+
 import static com.smwatt.comp.CType.*;
 
 public class CTypePrinter implements CTypeVisitor {
 		
 	CCodePrinter    _ccp;
 	XMLOutputStream _xo;
+	
+	// compound types being printed.
+	private HashSet<CType> currently_printing = new HashSet<CType>();
 	
 	public CTypePrinter(PrintStream out) { 
 		TabbingStream _tout = new TabbingStream(out);
@@ -22,7 +27,7 @@ public class CTypePrinter implements CTypeVisitor {
 		_xo  = new XMLOutputStream(_tout);
 	}
 	
-	public void print(CType ct) { visit(ct); }
+	public void print(CType ct) { visit(ct); System.out.println(); }
 	
 	/////////////////////////////////////////////////////////////////////
 	private void openElement(String tag, CType ct) {
@@ -97,14 +102,26 @@ public class CTypePrinter implements CTypeVisitor {
 		_xo.endElement();
 	}
 	public void visit(CTypeStruct ct) {
-	    openElement("struct", ct, ct._optId);
-		for (CTypeField field: ct._fields)  visit(field);
-		_xo.endElement();
+	    if(!currently_printing.contains(ct)) {
+	        currently_printing.add(ct);
+	        openElement("struct", ct, ct._optId);
+	        for (CTypeField field: ct._fields)  visit(field);
+	        _xo.endElement();
+	        currently_printing.remove(ct);
+	    } else {
+	        openElement("struct[*rec*]", ct, ct._optId);
+	    }
 	}
 	public void visit(CTypeUnion ct) {
-	    openElement("union", ct, ct._optId);
-		for (CTypeField branch: ct._branches)  visit(branch);
-		_xo.endElement();
+	    if(!currently_printing.contains(ct)) {
+	        currently_printing.add(ct);
+	        openElement("union", ct, ct._optId);
+	        for (CTypeField branch: ct._branches)  visit(branch);
+	        _xo.endElement();
+	        currently_printing.remove(ct);
+	    } else {
+	        openElement("union[*rec*]", ct, ct._optId);
+	    }
 	}
 	public void visit(CTypeNamedTypedef ct) {
 	    openElement("tdname", ct, ct._id);

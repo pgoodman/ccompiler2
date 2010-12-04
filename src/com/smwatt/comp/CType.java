@@ -166,7 +166,7 @@ public abstract class CType {
         public void acceptVisitor(CTypeVisitor v) { v.visit(this); }
     }
     public static class CTypePointer extends CTypePointing {
-        CTypePointer(CType pointeeType) {
+        public CTypePointer(CType pointeeType) {
             _pointeeType = pointeeType;
         }
         

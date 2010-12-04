@@ -167,7 +167,8 @@ public class C {
     }
     
     static public abstract class CodeExpr extends Code {
-    	CType	_optTypeAnnotation = null;
+    	//CType	_optTypeAnnotation = null;
+        public Object _const_val = null; 
     }
     
     ///////////////////////////////////////////////////////////////////////////////

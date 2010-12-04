@@ -408,6 +408,7 @@ public class NameVisitor implements CodeVisitor {
         if(null != cc._optPointee) {
             cc._optPointee.acceptVisitor(this);
         }
+        cc._star.acceptVisitor(this);
         --pointer_declarator_count;
     }
 
@@ -516,6 +517,9 @@ public class NameVisitor implements CodeVisitor {
 
     public void visit(CodePointerStar cc) {
         cc._scope = env.getScope();
+        if(null != cc._optStar) {
+            cc._optStar.acceptVisitor(this);
+        }
     }
 
     public void visit(CodeInitializerValue cc) {

@@ -1,0 +1,4 @@
+
+int enum {
+    FOO
+};

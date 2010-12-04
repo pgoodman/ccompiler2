@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.smwatt.comp.C;
-import com.smwatt.comp.CType;
 
 public class CSymbol {
     
@@ -22,7 +21,7 @@ public class CSymbol {
     public Scope scope;
     
     /// the type of the code node / expression / statement
-    public CType type_of_code;
+    //public CType type_of_code;
     
     /// was this symbol ever used?
     public boolean is_used = false;

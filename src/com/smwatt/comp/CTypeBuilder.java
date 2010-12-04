@@ -10,459 +10,610 @@ package com.smwatt.comp;
 import java.util.List;
 import java.util.ArrayList;
 
+import com.pag.comp.ParseTreeNodePhase;
+import com.pag.sym.CSymbol;
 import com.pag.sym.Env;
+import com.pag.sym.Type;
+import com.smwatt.comp.C.Code;
+import com.smwatt.comp.C.CodeSpecifierStorage;
+
+import static com.pag.diag.Message.*;
 
 import static com.smwatt.comp.CType.*;
 
 public class CTypeBuilder {
-	
-	Env env;
-	
-	public CTypeBuilder(Env senv) { env = senv; }
-	
-	/**
-	 * Form a type given a specifier list and a declarator.
-	 * E.g. arg1: volatile double, arg2: *f(char **) gives
-	 * Function(Pointer(double{volatile}), [Pointer(Pointer(char))])
-	 */
-	public CType formType(
-			List<C.CodeSpecifier> specifiers, 
-			C.CodeDeclarator declarator) 
-	{
-		return formType(formType(specifiers), declarator);
-	}
-	public CType formReturnType(
-			List<C.CodeSpecifier> specifiers,
-			C.CodeDeclarator declarator)
-	{
-		return formReturnType(formType(specifiers), declarator);
-	}
-	
-	
-	public CType formType(List<C.CodeSpecifier> specifiers) {
-		return formTypeFromSpecifiers(specifiers);
-	}
-	public CType formType(CType base, C.CodeDeclarator declarator) {
-		return formTypeFromDeclarator(base, declarator);
-	}
-	public CType formReturnType(CType base, C.CodeDeclarator declarator) {
-		return formTypeFromDeclarator(base, declarator, true);
-	}
-	
-	
-	
-	private CType formTypeFromDeclaration(C.CodeDeclaration d) {
-		List<C.CodeSpecifier>  lspec = d._lspec;
-		List<C.CodeDeclarator> ldtor = d._ldtor;
-		
-		CType base = formTypeFromSpecifiers(lspec);
-		
-		switch (ldtor.size()) {
-		case 0: 
-			return base;
-		case 1: 
-			return formTypeFromDeclarator(base, ldtor.get(0));
-		default: 
-			// TODO: Error handling... this should never happen.
-			System.out.println("Case 8"); 
-			return new CTypeInvalid();
-		}
-	}
-	private CType formTypeFromDeclarator(CType base, C.CodeDeclarator dtor) {
-		return formTypeFromDeclarator(base, dtor, false);
-	}
-	
-	private CType formTypeFromDeclarator(
-			CType base,
-			C.CodeDeclarator dtor,
-			boolean wantReturnTypeOnly)
-	{
-		if (dtor == null) {
-			return base;
-		}
-		else if (dtor instanceof C.CodeDeclaratorId) {
-			if (wantReturnTypeOnly) {
-				System.out.println("Case 1");
-				return new CTypeInvalid();
-			}
-			return base;
-		}
-		else if (dtor instanceof C.CodeDeclaratorInit) {
-			if (wantReturnTypeOnly) {
-				// TODO error handling
-				System.out.println("Case 2");
-				return new CTypeInvalid();
-			}
-			return formTypeFromDeclarator(
-						base,((C.CodeDeclaratorInit) dtor)._dtor );
-		}
-		else if (dtor instanceof C.CodeDeclaratorFunction) {
-			// E.g. int (**f)(char,...) => base=int, dtor=(**f)(char,...)
-			C.CodeDeclaratorFunction fdtor = (C.CodeDeclaratorFunction) dtor;
-			
-			CType retType = formTypeFromDeclarator(base, fdtor._optFn);
-			
-			if (wantReturnTypeOnly) return retType;
-			
-			ArrayList<CType> argTypes = new ArrayList<CType>();
-			
-			boolean hadDotDotDot = false;
-			boolean hadId        = false;
-			
-			for (C.Code cc: fdtor._argl) {
-				if (hadDotDotDot) {
-					// TODO: Handle too many dot dot dots
-				    //System.out.println("too many ...'s.");
-				    // parse error :D
-				}
-				if (cc instanceof C.CodeId) {
-					// TODO: Handle old style function declarations.
-					// Should have a different entry point with declaration list.
-					hadId        = true;
-					hadDotDotDot = true; // Pretend.
-				}
-				else if (cc instanceof C.CodeDotDotDot) {
-					hadDotDotDot = true;
-				}
-				else if (cc instanceof C.CodeDeclaration) {				    
-					argTypes.add(formTypeFromDeclaration((C.CodeDeclaration) cc));
-					
-					// handle f(void) by clearing it out
-					if(1 == argTypes.size() && argTypes.get(0) instanceof CTypeVoid) {
-					    argTypes.clear();
-					}
-				}
-				else {
-					System.out.println("Case 3");
-					argTypes.add(new CTypeInvalid());
-				}
-			}
-			if (hadId) argTypes = null;
-			return new CTypeFunction(retType, argTypes, hadDotDotDot);
-		}
-		else if (dtor instanceof C.CodeDeclaratorArray) {
-			if (wantReturnTypeOnly) {
-				// TODO error handling
-				System.out.println("Case 4");
-				return new CTypeInvalid();
-			}
-			
-			System.out.println("check dimensions");
-			
-			// TODO Check whether dimensions are given.
-			// This is needed in all instances except:
-			//    use of array as pointer
-			//    use of array as last element of struct (depending)
-			// TODO
-			// Sometimes the dimension can come from the initializer.
-			// E.g. int  (**a)[7] => base=int, dtor=(**a)[7]
-			C.CodeDeclaratorArray adtor = (C.CodeDeclaratorArray) dtor;
-			
-			CType          eltType = formTypeFromDeclarator(base, adtor._optAr);
-			CTypeConstExpr optSize = CTypeConstExpr.optNew(adtor._optIndex);
-			return new CTypeArray(eltType, optSize);
-		}
-		else if (dtor instanceof C.CodeDeclaratorPointer) {
-			C.CodeDeclaratorPointer pdtor = (C.CodeDeclaratorPointer) dtor;
-			C.CodePointerStar star = pdtor._star;
-			
-			while (star != null) {
-				base = new CTypePointer(base);
-				
-				int constCount = 0;
-				int volatileCount = 0;
-				int otherCount = 0;
-				
-				for (C.CodeSpecifier spec : star._lspec) {
-					if (spec instanceof C.CodeSpecifierQualifier) {
-						C.CodeSpecifierQualifier qspec =
-							(C.CodeSpecifierQualifier) spec;
-						switch (qspec._spec._type) {
-						case CTokenType.CONST: constCount++; break;
-						case CTokenType.VOLATILE: volatileCount++; break;
-						default: otherCount++;
-						}
-					}
-					if (otherCount > 0) {
-						// TODO error
-					    System.out.println("otherCount > 0");
-					}
-					if (constCount + volatileCount > 1) {
-						// TODO error
-					    System.out.println("constCount + volatileCount > 1");
-					}
-					if (constCount > 0) base._isConst = true;
-					if (volatileCount > 0) base._isVolatile = true;
-				}
-				star = star._optStar;
-			}
-			return formTypeFromDeclarator(base, pdtor._optPointee);
-		}
-		else if (dtor instanceof C.CodeDeclaratorWidth){
-			if (wantReturnTypeOnly) {
-				// TODO error handling
-				System.out.println("Case 5");
-				return new CTypeInvalid();
-			}
-			// TODO: type inference error.  This should only be in structs.
-			System.out.println("Case 6");
-			return new CTypeInvalid();
-		}
-		else {
-			// TODO: type inference error.
-			System.out.println("Case 7");
-			return new CTypeInvalid();
-		}
-	}
-	private CType formTypeFromSpecifiers(List<C.CodeSpecifier> specifiers) {
-		CType base = null;
-		
-		int constCount 		= 0;
-		int volatileCount 	= 0;
-		
-		int signedCount 	= 0;
-		int unsignedCount 	= 0;
-		
-		int longCount   	= 0;
-		int shortCount  	= 0;
-		
-		for (C.CodeSpecifier spec: specifiers) {
-			
-			if (spec instanceof C.CodeSpecifierType) {
-				C.CodeSpecifierType tspec = (C.CodeSpecifierType) spec;
-				
-				switch (tspec._spec._type) {
-				case CTokenType.VOID:
-					if (base != null) {
-						// TODO: error handling
-					    System.out.println("VOID: base != null");
-					}
-					base = new CTypeVoid();
-					break;
-					
-				case CTokenType.FLOAT:
-					if (base != null) {
-						// TODO: error handling
-					    System.out.println("FLOAT: base != null");
-					}
-					base = new CTypeFloat();
-					break;
-				case CTokenType.DOUBLE:
-					if (base != null) {
-						// TODO: error handling
-					    System.out.println("DOUBLE: base != null");
-					}
-					base = new CTypeDouble();
-					break;
-				
-				case CTokenType.CHAR:
-					if (base != null) {
-						// TODO: error handling.
-					    System.out.println("CHAR: base != null");
-					}
-					base = new CTypeChar();
-					break;
-				case CTokenType.INT:
-					if (base != null) {
-						// TODO: error handling
-					    System.out.println("INT: base != null");
-					}
-					base = new CTypeInt();
-					break;
-					
-				case CTokenType.LONG:
-					longCount++;
-					break;
-				case CTokenType.SHORT:
-					shortCount++;
-					break;
-					
-				case CTokenType.SIGNED:
-					signedCount++;
-					break;
-				case CTokenType.UNSIGNED:
-					unsignedCount++;
-					break;
+    
+    Env env;
+    
+    public CTypeBuilder(Env senv) { env = senv; }
+    
+    /**
+     * Form a type given a specifier list and a declarator.
+     * E.g. arg1: volatile double, arg2: *f(char **) gives
+     * Function(Pointer(double{volatile}), [Pointer(Pointer(char))])
+     */
+    public CType formType(
+            List<C.CodeSpecifier> specifiers, 
+            C.CodeDeclarator declarator) 
+    {
+        return formType(formType(specifiers), declarator);
+    }
+    public CType formReturnType(
+            List<C.CodeSpecifier> specifiers,
+            C.CodeDeclarator declarator)
+    {
+        return formReturnType(formType(specifiers), declarator);
+    }
+    
+    
+    public CType formType(List<C.CodeSpecifier> specifiers) {
+        return formTypeFromSpecifiers(specifiers);
+    }
+    public CType formType(CType base, C.CodeDeclarator declarator) {
+        return formTypeFromDeclarator(base, declarator);
+    }
+    public CType formReturnType(CType base, C.CodeDeclarator declarator) {
+        return formTypeFromDeclarator(base, declarator, true);
+    }
+        
+    private CType formTypeFromDeclaration(C.CodeDeclaration d) {
+        List<C.CodeSpecifier>  lspec = d._lspec;
+        List<C.CodeDeclarator> ldtor = d._ldtor;
+        
+        CType base = formTypeFromSpecifiers(lspec);
+        
+        switch (ldtor.size()) {
+        case 0: 
+            return base;
+        case 1: 
+            return formTypeFromDeclarator(base, ldtor.get(0));
+        default: 
+            // TODO: Error handling... this should never happen.
+            System.out.println("Case 8"); 
+            return new CTypeInvalid();
+        }
+    }
+    private CType formTypeFromDeclarator(CType base, C.CodeDeclarator dtor) {
+        return formTypeFromDeclarator(base, dtor, false);
+    }
+    
+    private CType formTypeFromDeclarator(
+            CType base,
+            C.CodeDeclarator dtor,
+            boolean wantReturnTypeOnly)
+    {        
+        if (dtor == null) {
+            return base;
+        }
+        else if (dtor instanceof C.CodeDeclaratorId) {
+            if (wantReturnTypeOnly) {
+                System.out.println("Case 1");
+                return new CTypeInvalid();
+            }
+            return base;
+        }
+        else if (dtor instanceof C.CodeDeclaratorInit) {
+            if (wantReturnTypeOnly) {
+                // TODO error handling
+                System.out.println("Case 2");
+                return new CTypeInvalid();
+            }
+            return formTypeFromDeclarator(
+                        base,((C.CodeDeclaratorInit) dtor)._dtor );
+        }
+        else if (dtor instanceof C.CodeDeclaratorFunction) {
+            // E.g. int (**f)(char,...) => base=int, dtor=(**f)(char,...)
+            C.CodeDeclaratorFunction fdtor = (C.CodeDeclaratorFunction) dtor;
+            
+            CType retType = formTypeFromDeclarator(base, fdtor._optFn);
+            
+            // functions aren't allowed to return arrays
+            if(null != retType && retType instanceof CTypeArray) {
+                env.diag.report(E_FUNC_RETURN_ARRAY, dtor);
+                return new CTypeInvalid();
+            }
+            
+            if (wantReturnTypeOnly) return retType;
+            
+            ArrayList<CType> argTypes = new ArrayList<CType>();
+            
+            boolean hadDotDotDot = false;
+            boolean hadId        = false;
+            
+            for (C.Code cc: fdtor._argl) {
+                if (hadDotDotDot) {
+                    // parse error :D
+                    env.diag.report(
+                        B_BUG, cc, "Multiple '...'s in function declarator list"
+                    );
+                    return new CTypeInvalid();
+                }
+                if (cc instanceof C.CodeId) {
+                    // TODO: Handle old style function declarations.
+                    // Should have a different entry point with declaration list.
+                    // handled by ExprTypeVisitor :D
+                    hadId        = true;
+                    hadDotDotDot = true; // Pretend.
+                }
+                else if (cc instanceof C.CodeDotDotDot) {
+                    hadDotDotDot = true;
+                }
+                else if (cc instanceof C.CodeDeclaration) {                    
+                    argTypes.add(formTypeFromDeclaration((C.CodeDeclaration) cc));
+                    
+                    // handle f(void) by clearing it out
+                    if(1 == argTypes.size() && argTypes.get(0) instanceof CTypeVoid) {
+                        argTypes.clear();
+                    }
+                }
+                else {
+                    env.diag.report(
+                        B_BUG, cc, "Invalid code in function declarator list"
+                    );
+                    return new CTypeInvalid();
+                }
+            }
+            if (hadId) argTypes = null;
+            return new CTypeFunction(retType, argTypes, hadDotDotDot);
+        }
+        else if (dtor instanceof C.CodeDeclaratorArray) {
+            if (wantReturnTypeOnly) {
+                // TODO error handling
+                System.out.println("Case 4");
+                return new CTypeInvalid();
+            }
+            
+            C.CodeDeclaratorArray adtor = (C.CodeDeclaratorArray) dtor;
+            
+            // go and check the dimensions after the types have been
+            // computed. this will ensure that no array has a zero/negative
+            // size.
+            if(null != adtor._optIndex) {
+                env.addPhase(new ParseTreeNodePhase(adtor) {
+                    public boolean apply(Env env, Code code) {
+                        C.CodeDeclaratorArray arr = (C.CodeDeclaratorArray) node;
+                        Integer obj_result = (Integer) env.interpret(arr._optIndex);
+                        int result = (obj_result).intValue();
+                        
+                        if(result <= 0) {
+                            env.diag.report(
+                                E_ARRAY_SIZE_NOT_POS, 
+                                arr._optIndex, 
+                                obj_result
+                            );
+                            return false;
+                        }
+                        
+                        CTypeArray type = (CTypeArray) arr._type;
+                        
+                        // TODO calculate width
+                        
+                        return true;
+                    }
+                });
+            }
+            
+            if(base instanceof CTypeArray) {
+                CTypeArray sub = (CTypeArray) base;
+                
+                // need to have a dimension in multi-dimensional array
+                if(null == sub._optSize) {
+                    env.diag.report(E_INCOMPLETE_MULTI_ARRAY, dtor);
+                    return new CTypeInvalid();
+                }
+            }
+            
+            // fixed to create the right type
+            CTypeConstExpr optSize = CTypeConstExpr.optNew(adtor._optIndex);
+            adtor._type = new CTypeArray(base, optSize);
+            return formTypeFromDeclarator(
+                adtor._type,
+                adtor._optAr
+            );
+        
+        } else if (dtor instanceof C.CodeDeclaratorPointer) {
+            C.CodeDeclaratorPointer pdtor = (C.CodeDeclaratorPointer) dtor;
+            C.CodePointerStar star = pdtor._star;
+            
+            while (star != null) {
+                base = new CTypePointer(base);
+                
+                int constCount = 0;
+                int volatileCount = 0;
+                int otherCount = 0;
+                
+                for (C.CodeSpecifier spec : star._lspec) {
+                    if (spec instanceof C.CodeSpecifierQualifier) {
+                        C.CodeSpecifierQualifier qspec =
+                            (C.CodeSpecifierQualifier) spec;
+                        switch (qspec._spec._type) {
+                        case CTokenType.CONST: constCount++; break;
+                        case CTokenType.VOLATILE: volatileCount++; break;
+                        default: otherCount++;
+                        }
+                    }
+                    if (otherCount > 0) {
+                        env.diag.report(
+                            B_BUG, 
+                            spec, 
+                            "Non-type-qualifiers were found between two pointer declarators"
+                        );
+                        return new CTypeInvalid();
+                    }
+                    if (constCount + volatileCount > 1) {
+                        env.diag.report(E_POINTER_MULTI_QUALIF, spec);
+                        return new CTypeInvalid();
+                    }
+                    if (constCount > 0) base._isConst = true;
+                    if (volatileCount > 0) base._isVolatile = true;
+                }
+                star = star._optStar;
+            }
+            return formTypeFromDeclarator(base, pdtor._optPointee);
+        }
+        else if (dtor instanceof C.CodeDeclaratorWidth){
+            if (wantReturnTypeOnly) {
+                // TODO error handling
+                System.out.println("Case 5");
+                return new CTypeInvalid();
+            }
+            
+            // ignore widths
+            C.CodeDeclaratorWidth width = (C.CodeDeclaratorWidth) dtor;
+            return this.formTypeFromDeclarator(base, width._dtor);
+        }
+        else {
+            // TODO: type inference error.
+            System.out.println("Case 7");
+            return new CTypeInvalid();
+        }
+    }
+    
+    public CType formTypeFromSpecifiers(List<C.CodeSpecifier> specifiers) {
+        CType base = null;
+        
+        int constCount      = 0;
+        int volatileCount   = 0;
+        
+        int signedCount     = 0;
+        int unsignedCount   = 0;
+        
+        int longCount       = 0;
+        int shortCount      = 0;
+        boolean has_error   = false;
+        
+        for (C.CodeSpecifier spec: specifiers) {
+            
+            if (spec instanceof C.CodeSpecifierType) {
+                C.CodeSpecifierType tspec = (C.CodeSpecifierType) spec;
+                
+                switch (tspec._spec._type) {
+                case CTokenType.VOID:
+                    if (base != null) {
+                        has_error = true;
+                        env.diag.report(E_TOO_MANY_TYPE_SPECS, spec);
+                    }
+                    base = new CTypeVoid();
+                    break;
+                    
+                case CTokenType.FLOAT:
+                    if (base != null) {
+                        has_error = true;
+                        env.diag.report(E_TOO_MANY_TYPE_SPECS, spec);
+                    }
+                    base = new CTypeFloat();
+                    break;
+                case CTokenType.DOUBLE:
+                    if (base != null) {
+                        has_error = true;
+                        env.diag.report(E_TOO_MANY_TYPE_SPECS, spec);
+                    }
+                    base = new CTypeDouble();
+                    break;
+                
+                case CTokenType.CHAR:
+                    if (base != null) {
+                        has_error = true;
+                        env.diag.report(E_TOO_MANY_TYPE_SPECS, spec);
+                    }
+                    base = new CTypeChar();
+                    break;
+                case CTokenType.INT:
+                    if (base != null) {
+                        has_error = true;
+                        env.diag.report(E_TOO_MANY_TYPE_SPECS, spec);
+                    }
+                    base = new CTypeInt();
+                    break;
+                    
+                case CTokenType.LONG:
+                    longCount++;
+                    break;
+                case CTokenType.SHORT:
+                    shortCount++;
+                    break;
+                    
+                case CTokenType.SIGNED:
+                    signedCount++;
+                    break;
+                case CTokenType.UNSIGNED:
+                    unsignedCount++;
+                    break;
                 default:
-                    System.out.println("default: unhandled type specifier");
-                	// TODO error handling
-                	;
-				}
-			}
-			else if (spec instanceof C.CodeSpecifierQualifier) {
-				C.CodeSpecifierQualifier qspec = 
-					(C.CodeSpecifierQualifier) spec;
-				switch (qspec._spec._type) {
-				case CTokenType.CONST:
-					constCount++;
-					break;
-				case CTokenType.VOLATILE:
-					volatileCount++;
-					break;
+                    env.diag.report(B_BUG, tspec, "Unknown type specifier");
+                    return new CTypeInvalid();
+                }
+            }
+            else if (spec instanceof C.CodeSpecifierQualifier) {
+                C.CodeSpecifierQualifier qspec = 
+                    (C.CodeSpecifierQualifier) spec;
+                switch (qspec._spec._type) {
+                case CTokenType.CONST:
+                    constCount++;
+                    break;
+                case CTokenType.VOLATILE:
+                    volatileCount++;
+                    break;
                 default:
-                    System.out.println("default: unhandled type qualifier");
-                	// TODO error handling
-                	;
-				}
-			}
-			else if (spec instanceof C.CodeSpecifierStruct) {
-				if (base != null) {
-					// TODO error handling
-				    System.out.println("STRUCT: base != null");
-				}
-				C.CodeSpecifierStruct sspec = (C.CodeSpecifierStruct) spec;
-				if (sspec._optParts != null) {
-					List<? extends C.Code> ldecl = sspec._optParts;
-					ArrayList<CTypeField> lfield = 
-						new ArrayList<CTypeField>();
-					for (C.Code d: ldecl) {
-						if (d instanceof C.CodeDeclaration) {
-							fillFields(lfield, (C.CodeDeclaration) d);
-						}
-						else {
-							// TODO error handling
-						    System.out.println("invalid code in struct body");
-						}
-					}
-					base = new CTypeStruct(sspec._optId, lfield);
-				}
-				else if (sspec._optId != null) {
-					base = new CTypeNamedStruct(sspec._optId);
-				}
-				else {
-					// TODO error handling
-				    System.out.println("STRUCT parts and name missing");
-				}
-			}
-			else if (spec instanceof C.CodeSpecifierUnion) {
-				if (base != null) {
-					// TODO error handling
-				    System.out.println("UNION: base != null");
-				}
-				C.CodeSpecifierUnion uspec = (C.CodeSpecifierUnion) spec;
-				if (uspec._optParts != null) {
-					List<? extends C.Code> ldecl = uspec._optParts;
-					ArrayList<CTypeField> lfield = 
-						new ArrayList<CTypeField>();
-					for (C.Code d: ldecl) {
-						if (d instanceof C.CodeDeclaration) {
-							fillFields(lfield, (C.CodeDeclaration) d);
-						}
-						else {
-							// TODO error handling
-						    System.out.println("invalid code in union body");
-						}
-					}
-					base = new CTypeUnion(uspec._optId, lfield);
-				}
-				else if (uspec._optId != null) {
-					base = new CTypeNamedUnion(uspec._optId);
-				}
-				else {
-					// TODO error handling
-				    System.out.println("STRUCT parts and name missing.");
-				}
-			}
-			else if (spec instanceof C.CodeSpecifierEnum) {
-				if (base != null) {
-					// TODO error handling
-				}
-				C.CodeSpecifierEnum espec = (C.CodeSpecifierEnum) spec;
-				if (espec._optParts != null) {
-					List<? extends C.Code> lcc= espec._optParts;
-					ArrayList<CTypeEnumerator> letor = 
-						new ArrayList<CTypeEnumerator>();
-					for (C.Code cc: lcc) {
-						if (cc instanceof C.CodeEnumerator) {
-							C.CodeEnumerator cetor = (C.CodeEnumerator) cc;
-							letor.add(new CTypeEnumerator(cetor._id,
-									CTypeConstExpr.optNew(cetor._optValue)));
-						}
-						else {
-							// TODO error handling
-						    System.out.println("invalid code in enum.");
-						}
-					}
-					base = new CTypeEnum(espec._optId, letor);
-				}
-				else if (espec._optId != null) {
-					base = new CTypeNamedEnum(espec._optId);
-				}
-				else {
-					// TODO error handling
-				    System.out.println("ENUM witout name or parts.");
-				}
-			}
-			else if (spec instanceof C.CodeSpecifierTypedefName) {
-				C.CodeSpecifierTypedefName tspec = 
-					(C.CodeSpecifierTypedefName) spec;
-				if (base != null) {
-					// TODO error handling
-				    System.out.println("TYPEDEF name: base != null");
-				}
-				base = new CTypeNamedTypedef(tspec._id);
-				
-				// TODO fill in the "really" field.
-				System.out.println("really field?");
-				
-			}
-			else {
-				// TODO error handling
-			    System.out.println("unknown type specifier");
-			}
-		}
-		if (base == null) {
-			base = new CTypeInt();
-		}
-		if (constCount + volatileCount > 0) {
-			if (constCount + volatileCount > 0) {
-				// TODO error handling
-			    System.out.println("constCount + volatileCount > 0");
-			}
-			base._isConst    = constCount > 0;
-			base._isVolatile = volatileCount > 0;
-		}
-		if (signedCount + unsignedCount > 0) {
-			if (signedCount + unsignedCount > 1) {
-				// TODO error handling
-			    System.out.println("signed and unsigned");
-			}
-			if (base instanceof CTypeIntegral) {
-				((CTypeIntegral) base)._signed = signedCount - unsignedCount;
-			}
-			else {
-				// TODO error only integral types can be signed or unsigned.
-			    System.out.println("signed non-integral type");
-			}
-		}
-		if (shortCount + longCount > 0) {
-			if (shortCount + longCount > 1) {
-				// TODO error handling
-			    System.out.println("short long type :/");
-			}
-			if (base instanceof CTypeInt || base instanceof CTypeDouble) {
-				((CTypeArithmetic) base)._length = longCount - shortCount;
-			}
-			else {
-				// TODO error only ints and doubles can be long or short.
-			    System.out.println("short/long non-int/double");
-			}
-		}
-		return base;
-	}
-	private void fillFields(List<CTypeField> lfield, C.CodeDeclaration dcl) {
-		List<C.CodeSpecifier>  lspec = dcl._lspec;
-		List<C.CodeDeclarator> ldtor = dcl._ldtor;
-		
-		CType base = formTypeFromSpecifiers(lspec);
-		//TODO widths
-		
-		System.out.println("TODO: widths of fields.");
-		
-		for (C.CodeDeclarator dtor: ldtor) {
-			CType t = formTypeFromDeclarator(base, dtor);
-			C.CodeId optId = dtor.getOptId();
-			lfield.add(new CTypeField(optId, t));
-		}
-	}
+                    env.diag.report(B_BUG, spec, "Unknown type qualifier");
+                    return new CTypeInvalid();
+                }
+            }
+            else if (spec instanceof C.CodeSpecifierStruct) {
+                if (base != null) {
+                    has_error = true;
+                    env.diag.report(E_TOO_MANY_TYPE_SPECS, spec);
+                }
+                C.CodeSpecifierStruct sspec = (C.CodeSpecifierStruct) spec;
+                if (sspec._optParts != null) {
+                    
+                    List<? extends C.Code> ldecl = sspec._optParts;
+                    
+                    ArrayList<CTypeField> lfield = 
+                        new ArrayList<CTypeField>();
+                    
+                    // note: putting before we expand out the inside so that
+                    //       we can self-reference a struct.
+                    base = new CTypeStruct(sspec._optId, lfield);
+                    sspec._type = base;
+                    
+                    for (C.Code d: ldecl) {
+                        if (d instanceof C.CodeDeclaration) {
+                            fillFields(lfield, (C.CodeDeclaration) d, true);
+                        } else {
+                            env.diag.report(B_BUG, d, "Invalid code in struct body");
+                            return new CTypeInvalid();
+                        }
+                    }
+                    
+                    
+                }
+                else if (sspec._optId != null) {
+                    //base = new CTypeNamedStruct(sspec._optId);
+                    base = sspec._scope.get(
+                        sspec._optId._s, Type.STRUCT_NAME
+                    ).code._type;
+                }
+                else {
+                    env.diag.report(B_BUG, spec, "Struct missing name and body");
+                    return new CTypeInvalid();
+                }
+            }
+            else if (spec instanceof C.CodeSpecifierUnion) {
+
+                if (base != null) {
+                    has_error = true;
+                    env.diag.report(E_TOO_MANY_TYPE_SPECS, spec);
+                }
+                
+                C.CodeSpecifierUnion uspec = (C.CodeSpecifierUnion) spec;
+                
+                if (uspec._optParts != null) {
+                    
+                    List<? extends C.Code> ldecl = uspec._optParts;
+                    ArrayList<CTypeField> lfield = 
+                        new ArrayList<CTypeField>();
+                    
+                    base = new CTypeUnion(uspec._optId, lfield);
+                    uspec._type = base;
+                    
+                    for (C.Code d: ldecl) {
+                        if (d instanceof C.CodeDeclaration) {
+                            fillFields(lfield, (C.CodeDeclaration) d, false);
+                        } else {
+                            env.diag.report(B_BUG, d, "Invalid code in union body");
+                            return new CTypeInvalid();
+                        }
+                    }
+                    
+                }
+                else if (uspec._optId != null) {
+                    //base = new CTypeNamedUnion(uspec._optId);
+                    base = uspec._scope.get(
+                        uspec._optId._s, Type.UNION_NAME
+                    ).code._type;
+                }
+                else {
+                    env.diag.report(B_BUG, spec, "Union missing name and body");
+                    return new CTypeInvalid();
+                }
+            }
+            else if (spec instanceof C.CodeSpecifierEnum) {
+                if (base != null) {
+                    has_error = true;
+                    env.diag.report(E_TOO_MANY_TYPE_SPECS, spec);
+                }
+                C.CodeSpecifierEnum espec = (C.CodeSpecifierEnum) spec;
+                if (espec._optParts != null) {
+                    
+                    List<? extends C.Code> lcc= espec._optParts;
+                    ArrayList<CTypeEnumerator> letor = 
+                        new ArrayList<CTypeEnumerator>();
+                    
+                    base = new CTypeEnum(espec._optId, letor);
+                    espec._type = base;
+                    
+                    for (C.Code cc: lcc) {
+                        if (cc instanceof C.CodeEnumerator) {
+                            C.CodeEnumerator cetor = (C.CodeEnumerator) cc;
+                            
+                            // add in the type of the enumerator constant
+                            // for later :D
+                            cetor._type = base;
+                            cetor._id._type = base;
+                            
+                            letor.add(new CTypeEnumerator(
+                                cetor._id,
+                                CTypeConstExpr.optNew(cetor._optValue)
+                            ));                            
+                        }
+                        else {
+                            env.diag.report(
+                                B_BUG, spec, "Invalid code in enum body"
+                            );
+                            return new CTypeInvalid();
+                        }
+                    }
+                    
+                    // add in a phase to build up the values of the
+                    // enumeration constants
+                    env.addPhase(new ParseTreeNodePhase(espec) {
+
+                        public boolean apply(Env env, Code code) {
+                            
+                            C.CodeSpecifierEnum cc = (C.CodeSpecifierEnum) node;
+                            int val = 0;
+                            
+                            for(C.Code part : cc._optParts) {
+                                C.CodeEnumerator en = (C.CodeEnumerator) part;
+                                
+                                // assign this enumeration constant a value
+                                if(null == en._optValue) {
+                                    en._optValue = new C.CodeIntegerConstant(Integer.toString(val));
+                                    en._optValue._const_val = new Integer(val++);
+                                
+                                // take this enumeration constant's value
+                                // as the new starting point
+                                } else {
+                                    Integer obj_val = (Integer) env.interpret(en._optValue);
+                                    en._optValue._const_val = obj_val;
+                                    val = obj_val.intValue() + 1;
+                                }
+                                
+                            }
+                            return false;
+                        }
+                        
+                    });
+                }
+                else if (espec._optId != null) {
+                    //base = new CTypeNamedEnum(espec._optId);
+                    base = espec._scope.get(
+                        espec._optId._s, Type.ENUM_NAME
+                    ).code._type;
+                }
+                else {
+                    env.diag.report(B_BUG, spec, "Enum missing name and body");
+                    return new CTypeInvalid();
+                }
+            }
+            else if (spec instanceof C.CodeSpecifierTypedefName) {
+                C.CodeSpecifierTypedefName tspec = 
+                    (C.CodeSpecifierTypedefName) spec;
+                
+                if (base != null) {
+                    has_error = true;
+                    env.diag.report(E_TOO_MANY_TYPE_SPECS, spec);
+                }
+                //base = new CTypeNamedTypedef(tspec._id);
+                
+                // direct substitution for the typedef
+                CSymbol sym = spec._scope.get(
+                    tspec._id._s, 
+                    Type.TYPEDEF_NAME
+                );
+                base = sym.code._type;
+            }
+            
+            // storage specifier
+            else {
+                
+                // not allowed to have auto or register storage specifiers
+                // outside of a function scope
+                CodeSpecifierStorage stor = (CodeSpecifierStorage) spec;
+                if(CTokenType.AUTO == stor._spec._type
+                || CTokenType.REGISTER == stor._spec._type) {
+                    if(0 == stor._scope.depth) {
+                        env.diag.report(E_AUTO_REG_OUTSIDE_FUNC, spec);
+                    }
+                }
+            }
+        }
+        if (base == null) {
+            base = new CTypeInt();
+        }
+
+        if (constCount + volatileCount > 0) {
+            if (constCount + volatileCount > 0) {
+                env.diag.report(E_MULTI_QUALIFIER, specifiers.get(0));
+                has_error = true;
+            }
+            base._isConst    = constCount > 0;
+            base._isVolatile = volatileCount > 0;
+        }
+        if (signedCount + unsignedCount > 0) {
+            if (signedCount + unsignedCount > 1) {
+                env.diag.report(E_MULTI_SIGNED, specifiers.get(0));
+                has_error = true;
+            }
+            if (base instanceof CTypeIntegral) {
+                ((CTypeIntegral) base)._signed = signedCount - unsignedCount;
+            }
+            else {
+                env.diag.report(E_SIGNED_NON_INTEGRAL_T, specifiers.get(0));
+                has_error = true;
+            }
+        }
+        if (shortCount + longCount > 0) {
+            if (shortCount + longCount > 1) {
+                env.diag.report(E_SHORT_LONG_T, specifiers.get(0));
+                has_error = true;
+            }
+            if (base instanceof CTypeInt || base instanceof CTypeDouble) {
+                ((CTypeArithmetic) base)._length = longCount - shortCount;
+            }
+            else {
+                env.diag.report(E_SHORT_LONG_NON_INTEGRAL_T, specifiers.get(0));
+                has_error = true;
+            }
+        }
+        
+        if(has_error) {
+            base = new CTypeInvalid();
+        }
+        
+        return base;
+    }
+    private void fillFields(List<CTypeField> lfield, C.CodeDeclaration dcl, boolean in_struct) {
+        List<C.CodeSpecifier>  lspec = dcl._lspec;
+        List<C.CodeDeclarator> ldtor = dcl._ldtor;
+                
+        CType base = formTypeFromSpecifiers(lspec);
+        
+        for (C.CodeDeclarator dtor: ldtor) {
+            
+            // go look for field widths inside of a union, if found, report
+            // the error, but proceed assuming
+            if(dtor instanceof C.CodeDeclaratorWidth && !in_struct) {
+                env.diag.report(R_FIELD_WIDTH_STRUCT_ONLY, dtor);
+                
+                C.CodeDeclaratorWidth width = (C.CodeDeclaratorWidth) dtor;
+                dtor = width._dtor;
+            }
+            
+            CType t = formTypeFromDeclarator(base, dtor);
+            C.CodeId optId = dtor.getOptId();
+            lfield.add(new CTypeField(optId, t));
+        }
+    }
 }
