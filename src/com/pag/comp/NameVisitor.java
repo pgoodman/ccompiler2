@@ -157,7 +157,7 @@ public class NameVisitor implements CodeVisitor {
         } else if(null == sym) {
             env.diag.report(E_VAR_UNKNOWN, cc, name);
         } else {
-            //System.out.println(sym.name + " " + sym.type);
+            //System.out.println("CodeId: " + sym.name + " " + sym.type);
             // TODO ?
         }
     }
@@ -167,7 +167,9 @@ public class NameVisitor implements CodeVisitor {
         for(CodeSpecifier spec : cc._lspec) {
             spec.acceptVisitor(this);
         }
-        cc._dtor.acceptVisitor(this);
+        if(null != cc._dtor) {
+            cc._dtor.acceptVisitor(this);
+        }
     }
 
     public void visit(CodeString cc) {
@@ -439,7 +441,7 @@ public class NameVisitor implements CodeVisitor {
         
         // function parameter list
         if(in_func_head && 0 < func_param_list_count) {
-            visitFuncParam(name, sym, cc);
+            visitFuncParam(name, sym, cc.getOptId());
         
         // function declaration list
         } else if(in_func_decl_list) {
@@ -510,7 +512,7 @@ public class NameVisitor implements CodeVisitor {
             env.addSymbol(
                 name, 
                 in_typedef || cc._is_typedef ? Type.TYPEDEF_NAME : Type.VARIABLE, 
-                cc
+                cc._id
             );
         }
     }
@@ -701,6 +703,7 @@ public class NameVisitor implements CodeVisitor {
     }
 
     public void visit(CodeExprId cc) {
+        cc._scope = env.getScope();
         cc._id.acceptVisitor(this);
     }
 

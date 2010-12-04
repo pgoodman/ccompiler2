@@ -10,6 +10,8 @@ import com.smwatt.comp.C;
 
 public class Env {
     
+    public static boolean DEBUG = true;
+    
     /// active scope
     private Scope scope = null;
     

@@ -10,7 +10,10 @@ import com.smwatt.comp.SourcePosition;
 import com.smwatt.comp.C.Code;
 
 public class Question3 {
-        public static void main(String[] args) {        
+        public static void main(String[] args) {     
+        
+        // delay reporting of messages until whatever phase is run last is
+        // complete. note: not all phases will necessarily be run!
         Compiler.run(args, new MessageHandler() {
             public void report(Message msg, SourcePosition pos, Object ... args) {
                 Reporter.reportLater(msg, pos, args);
@@ -21,12 +24,16 @@ public class Question3 {
             }
         }, 
         
-        // type inference phase of the compiler
+        // deduce the types of all names in the program. this phase adds
+        // small step phases that evaluate compile-time expressions in order 
+        // to figure out the sizes of types, values of enumerators, etc.
+        //
+        // once all types of names have been deduced (top-down), the types
+        // of expressions are inferred (bottom-up)
         new Phase() {
             public boolean apply(Env env, Code code) {
                 TypeInferenceVisitor visitor = new TypeInferenceVisitor(env);
                 visitor.visit(code);
-                
                 return !Reporter.errorReported();
             }
         });

@@ -25,22 +25,7 @@ class ListOf {
     public static class CCodeId  	     extends ArrayList<CodeId> { }
     
     @SuppressWarnings("serial")
-    public static class CCodeSpecifier   extends ArrayList<CodeSpecifier> {
-        /*public boolean add(CodeSpecifier spec) {
-            
-            if(spec instanceof CodeSpecifierQualifier
-            || spec instanceof CodeSpecifierStorage) {
-                return super.add(spec);
-            }
-                        
-            for(CodeSpecifier s : this) {
-                if(s instanceof CodeSpecifierType) {
-                    throw new AbortCompilation("Cannot have two types i");
-                }
-            }
-            return super.add(spec);
-        }*/
-    }
+    public static class CCodeSpecifier   extends ArrayList<CodeSpecifier> { }
     
     @SuppressWarnings("serial")
     public static class CCodeEnumerator  extends ArrayList<CodeEnumerator> { }

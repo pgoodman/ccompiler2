@@ -123,6 +123,7 @@ public class CTypePrinter implements CTypeVisitor {
 	        openElement("union[*rec*]", ct, ct._optId);
 	    }
 	}
+	/*
 	public void visit(CTypeNamedTypedef ct) {
 	    openElement("tdname", ct, ct._id);
 	    _xo.putAttribute("haveDef", ct._optReally != null);
@@ -142,7 +143,7 @@ public class CTypePrinter implements CTypeVisitor {
 	    openElement("ename", ct, ct._id);
 	    _xo.putAttribute("haveDef", ct._optReally != null);
 		_xo.endElement();
-	}
+	}*/
 	public void visit(CTypeConstExpr ob) {
 		_xo.openElement("const");
 		_xo.beginContent();

@@ -66,8 +66,11 @@ public enum Message {
     E_FUNC_RETURN_ARRAY     (ERROR,         "Functions are not allowed to return arrays."),
     E_POINTER_MULTI_QUALIF  (ERROR,         "Pointer declarators can only have one type qualifier."),
     R_FIELD_WIDTH_STRUCT_ONLY(RECOVERABLE,  "Field widths can only be specified inside of structs."),
+    E_COMPOUND_CONTAIN_SELF (ERROR,         "A compound type (struct,union) cannot contain itself as a field. To do this, use a pointer to itself."),
     
-    B_BUG                   (BUG,           "The following bug was reported: %%.");
+    E_NON_CONSTANT_EXPR     (ERROR,         "Cannot evaluate non-constant expression."),
+    
+    B_BUG                   (BUG,           "The following bug was reported: %%."),;
     
     public final Type type;
     public final String format;

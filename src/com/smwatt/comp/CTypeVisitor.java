@@ -25,11 +25,13 @@ public interface CTypeVisitor {
 	public void visit(CTypeStruct      ct);
 	public void visit(CTypeUnion       ct);
 	
+	/*
 	public void visit(CTypeNamedTypedef ct);
 	public void visit(CTypeNamedStruct ct);
 	public void visit(CTypeNamedUnion  ct);
 	public void visit(CTypeNamedEnum   ct);
-		
+    */
+	
 	public void visit(CTypeConstExpr   ob);
 	public void visit(CTypeEnumerator  ob);
 	public void visit(CTypeField       ob);

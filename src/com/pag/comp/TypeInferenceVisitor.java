@@ -8,6 +8,7 @@ import com.pag.sym.Type;
 import com.smwatt.comp.CTypeBuilder;
 import com.smwatt.comp.CTypePrinter;
 import com.smwatt.comp.CType;
+import com.smwatt.comp.C.Code;
 import com.smwatt.comp.C.CodeDeclaration;
 
 import static com.smwatt.comp.CType.*;
@@ -46,6 +47,11 @@ public class TypeInferenceVisitor implements CodeVisitor {
         // handle old-style types
         for(CodeDeclaration decl : cc._ldecl) {
             for(CodeDeclarator dtor : decl._ldtor) {
+                
+                if(null == dtor) {
+                    continue;
+                }
+                
                 CType arg_type = builder.formType(decl._lspec, dtor);
                 dtor._type = arg_type;
                 CodeId id = dtor.getOptId();
@@ -59,14 +65,21 @@ public class TypeInferenceVisitor implements CodeVisitor {
                 dtor.acceptVisitor(this);
             }
         }
+        
+        cc._body.acceptVisitor(this);
     }
 
     public void visit(CodeDeclaration cc) {
         for(CodeDeclarator dtor : cc._ldtor) {
             
+            if(null == dtor) {
+                continue;
+            }
+            
             CType arg_type = builder.formType(cc._lspec, dtor);
             dtor._type = arg_type;
             
+            // set the type of the id
             CodeId id = dtor.getOptId();
             if(null != id) {
                 id._type = dtor._type;
@@ -78,6 +91,12 @@ public class TypeInferenceVisitor implements CodeVisitor {
             printer.print(dtor._type);
         }
         
+        // we need to check the type of constant expressions (e.g. in
+        // enums, array dimensions, etc.
+        for(CodeSpecifier spec : cc._lspec) {
+            spec.acceptVisitor(this);
+        }
+        
         // make sure we can typecheck specifiers even in the absence of
         // a declarator
         if(cc._ldtor.isEmpty()) {
@@ -85,9 +104,7 @@ public class TypeInferenceVisitor implements CodeVisitor {
         }
     }
 
-    public void visit(CodeId cc) {
-        // TODO?
-    }
+    public void visit(CodeId cc) { }
 
     public void visit(CodeTypeName cc) {
         cc._type = builder.formType(cc._lspec, cc._dtor);
@@ -229,7 +246,16 @@ public class TypeInferenceVisitor implements CodeVisitor {
 
     public void visit(CodeStatCase cc) {
         cc._value.acceptVisitor(this);
+        
         // TODO check type of value
+        
+        env.addPhase(new ParseTreeNodePhase(cc) {
+
+            public boolean apply(Env env, Code code) {
+                // TODO Auto-generated method stub
+                return false;
+            }
+        });
         
         cc._stat.acceptVisitor(this);
     }
@@ -377,19 +403,44 @@ public class TypeInferenceVisitor implements CodeVisitor {
     }
 
     public void visit(CodeExprId cc) {
-        cc._type = env.getSymbol(cc._id._s).code._type;
+        cc._type = cc._scope.get(cc._id._s).code._type;
     }
 
     public void visit(CodeExprSizeofValue cc) {
         cc._expr.acceptVisitor(this);
+        
+ 
         // TODO check expression?
         cc._type = new CSizeT();
+        
+        env.addPhase(new ParseTreeNodePhase(cc) {
+            public boolean apply(Env env, Code code) {
+                CodeExprSizeofValue val = (CodeExprSizeofValue) node;
+                val._const_val = new Integer(val._expr._type.sizeOf());                
+                if(Env.DEBUG) {
+                    System.out.println("DEBUG: sizeof(expr) " + val + " = " + val._const_val);
+                }
+                return true;
+            }
+        });
     }
 
     public void visit(CodeExprSizeofType cc) {
         // TODO check type?
+                
         cc._tname.acceptVisitor(this);
         cc._type = new CSizeT();
+        
+        env.addPhase(new ParseTreeNodePhase(cc) {
+            public boolean apply(Env env, Code code) {
+                CodeExprSizeofType ty = (CodeExprSizeofType) node;
+                ty._const_val = new Integer(ty._tname._type.sizeOf());                
+                if(Env.DEBUG) {
+                    System.out.println("DEBUG sizeof(type) " + ty + " = " + ty._const_val);
+                }
+                return true;
+            }
+        });
     }
 
     public void visit(CodeExprCall cc) {

@@ -1,12 +1,19 @@
 package com.pag.comp;
 
+import java.util.LinkedList;
+
+import com.pag.sym.CSymbol;
 import com.pag.sym.Env;
+import com.pag.sym.Type;
+import static com.pag.diag.Message.*;
+
 import com.smwatt.comp.C.Code;
 import static com.smwatt.comp.C.*;
 
 /**
  * A visitor that will go an interpret constant expressions. It will report
- * errors if a constant expression cannot be interpreted.
+ * errors if a constant expression cannot be interpreted. In this pass, we
+ * assume that type checking has completed successfully.
  * 
  * @author petergoodman
  *
@@ -14,301 +21,261 @@ import static com.smwatt.comp.C.*;
 public class ExpressionInterpreterVisitor implements CodeVisitor {
     
     private Env env;
-    private Object result = null;
+    private LinkedList<Object> results = new LinkedList<Object>();
     
     public ExpressionInterpreterVisitor(Env ee) {
         env = ee;
     }
     
     public Object yield() {
-        Object ret = result;
-        result = null;
-        return ret;
+        return results.pop();
     }
     
     public void visit(Code cc) {
-        // TODO Auto-generated method stub
-        
+        cc.acceptVisitor(this);
     }
     
     public void visit(CodeUnit cc) {
-        // TODO Auto-generated method stub
-        
+        env.diag.report(E_NON_CONSTANT_EXPR, cc);
     }
     
     public void visit(CodeFunction cc) {
-        // TODO Auto-generated method stub
-        
+        env.diag.report(E_NON_CONSTANT_EXPR, cc);
     }
     
     public void visit(CodeDeclaration cc) {
-        // TODO Auto-generated method stub
-        
+        env.diag.report(E_NON_CONSTANT_EXPR, cc);
     }
     
     public void visit(CodeId cc) {
-        // TODO Auto-generated method stub
-        
+        env.diag.report(E_NON_CONSTANT_EXPR, cc);
     }
     
     public void visit(CodeTypeName cc) {
-        // TODO Auto-generated method stub
-        
+        env.diag.report(E_NON_CONSTANT_EXPR, cc);
     }
     
     public void visit(CodeString cc) {
-        // TODO Auto-generated method stub
-        
+        env.diag.report(E_NON_CONSTANT_EXPR, cc);
     }
     
     public void visit(CodeCharacterConstant cc) {
-        // TODO Auto-generated method stub
-        
+        results.push(cc._const_val);
     }
     
     public void visit(CodeIntegerConstant cc) {
-        // TODO Auto-generated method stub
-        
+        results.push(cc._const_val);
     }
     
     public void visit(CodeFloatingConstant cc) {
-        // TODO Auto-generated method stub
-        
+        results.push(cc._const_val);
     }
     
+    // by this time we expect that the enumerator opt values have all been
+    // substituted with actual values.
     public void visit(CodeEnumerationConstant cc) {
-        // TODO Auto-generated method stub
-        
+        CSymbol sym = cc._scope.get(cc._s, Type.ENUMERATOR);
+        results.push(((CodeEnumerator) sym.code)._optValue._const_val);
     }
     
     public void visit(CodeDotDotDot cc) {
-        // TODO Auto-generated method stub
-        
+        env.diag.report(E_NON_CONSTANT_EXPR, cc);
     }
     
     public void visit(CodeSpecifierStorage cc) {
-        // TODO Auto-generated method stub
-        
+        env.diag.report(E_NON_CONSTANT_EXPR, cc);
     }
     
     public void visit(CodeSpecifierQualifier cc) {
-        // TODO Auto-generated method stub
-        
+        env.diag.report(E_NON_CONSTANT_EXPR, cc);
     }
     
     public void visit(CodeSpecifierType cc) {
-        // TODO Auto-generated method stub
-        
+        env.diag.report(E_NON_CONSTANT_EXPR, cc);
     }
     
     public void visit(CodeSpecifierTypedefName cc) {
-        // TODO Auto-generated method stub
-        
+        env.diag.report(E_NON_CONSTANT_EXPR, cc);
     }
     
     public void visit(CodeSpecifierStruct cc) {
-        // TODO Auto-generated method stub
-        
+        env.diag.report(E_NON_CONSTANT_EXPR, cc);
     }
     
     public void visit(CodeSpecifierUnion cc) {
-        // TODO Auto-generated method stub
-        
+        env.diag.report(E_NON_CONSTANT_EXPR, cc);
     }
     
     public void visit(CodeSpecifierEnum cc) {
-        // TODO Auto-generated method stub
-        
+        env.diag.report(E_NON_CONSTANT_EXPR, cc);
     }
     
     public void visit(CodeEnumerator cc) {
-        // TODO Auto-generated method stub
-        
+        env.diag.report(E_NON_CONSTANT_EXPR, cc);
     }
     
     public void visit(CodeDeclaratorArray cc) {
-        // TODO Auto-generated method stub
-        
+        env.diag.report(E_NON_CONSTANT_EXPR, cc);
     }
     
     public void visit(CodeDeclaratorFunction cc) {
-        // TODO Auto-generated method stub
-        
+        env.diag.report(E_NON_CONSTANT_EXPR, cc);
     }
     
     public void visit(CodeDeclaratorInit cc) {
-        // TODO Auto-generated method stub
-        
+        env.diag.report(E_NON_CONSTANT_EXPR, cc);
     }
     
     public void visit(CodeDeclaratorPointer cc) {
-        // TODO Auto-generated method stub
-        
+        env.diag.report(E_NON_CONSTANT_EXPR, cc);
     }
     
     public void visit(CodeDeclaratorWidth cc) {
-        // TODO Auto-generated method stub
-        
+        env.diag.report(E_NON_CONSTANT_EXPR, cc);
     }
     
     public void visit(CodeDeclaratorId cc) {
-        // TODO Auto-generated method stub
-        
+        env.diag.report(E_NON_CONSTANT_EXPR, cc);
     }
     
     public void visit(CodePointerStar cc) {
-        // TODO Auto-generated method stub
-        
+        env.diag.report(E_NON_CONSTANT_EXPR, cc);
     }
     
     public void visit(CodeInitializerValue cc) {
-        // TODO Auto-generated method stub
-        
+        env.diag.report(E_NON_CONSTANT_EXPR, cc);
     }
     
     public void visit(CodeInitializerList cc) {
-        // TODO Auto-generated method stub
-        
+        env.diag.report(E_NON_CONSTANT_EXPR, cc);
     }
     
     public void visit(CodeStatBreak cc) {
-        // TODO Auto-generated method stub
-        
+        env.diag.report(E_NON_CONSTANT_EXPR, cc);
     }
     
     public void visit(CodeStatCase cc) {
-        // TODO Auto-generated method stub
-        
+        env.diag.report(E_NON_CONSTANT_EXPR, cc);
     }
     
     public void visit(CodeStatCompound cc) {
-        // TODO Auto-generated method stub
-        
+        env.diag.report(E_NON_CONSTANT_EXPR, cc);
     }
     
     public void visit(CodeStatContinue cc) {
-        // TODO Auto-generated method stub
-        
+        env.diag.report(E_NON_CONSTANT_EXPR, cc);
     }
     
     public void visit(CodeStatDefault cc) {
-        // TODO Auto-generated method stub
-        
+        env.diag.report(E_NON_CONSTANT_EXPR, cc);
     }
     
     public void visit(CodeStatDo cc) {
-        // TODO Auto-generated method stub
-        
+        env.diag.report(E_NON_CONSTANT_EXPR, cc);
     }
     
     public void visit(CodeStatExpression cc) {
-        // TODO Auto-generated method stub
-        
+        env.diag.report(E_NON_CONSTANT_EXPR, cc);
     }
     
     public void visit(CodeStatFor cc) {
-        // TODO Auto-generated method stub
-        
+        env.diag.report(E_NON_CONSTANT_EXPR, cc);
     }
     
     public void visit(CodeStatGoto cc) {
-        // TODO Auto-generated method stub
-        
+        env.diag.report(E_NON_CONSTANT_EXPR, cc);
     }
     
     public void visit(CodeStatIf cc) {
-        // TODO Auto-generated method stub
-        
+        env.diag.report(E_NON_CONSTANT_EXPR, cc);
     }
     
     public void visit(CodeStatLabeled cc) {
-        // TODO Auto-generated method stub
-        
+        env.diag.report(E_NON_CONSTANT_EXPR, cc);
     }
     
     public void visit(CodeStatReturn cc) {
-        // TODO Auto-generated method stub
-        
+        env.diag.report(E_NON_CONSTANT_EXPR, cc);
     }
     
     public void visit(CodeStatSwitch cc) {
-        // TODO Auto-generated method stub
-        
+        env.diag.report(E_NON_CONSTANT_EXPR, cc);
     }
     
     public void visit(CodeStatWhile cc) {
-        // TODO Auto-generated method stub
-        
+        env.diag.report(E_NON_CONSTANT_EXPR, cc);
     }
     
     public void visit(CodeExprAssignment cc) {
-        // TODO Auto-generated method stub
-        
+        env.diag.report(E_NON_CONSTANT_EXPR, cc);
     }
     
     public void visit(CodeExprCast cc) {
-        // TODO Auto-generated method stub
-        
+        // TODO
+        cc._expr.acceptVisitor(this);
     }
     
     public void visit(CodeExprConditional cc) {
-        // TODO Auto-generated method stub
-        
+        // TODO
+        cc._test.acceptVisitor(this);
+        cc._thexpr.acceptVisitor(this);
+        cc._elexpr.acceptVisitor(this);
     }
     
     public void visit(CodeExprInfix cc) {
-        // TODO Auto-generated method stub
-        
+        // TODO check op
+        cc._a.acceptVisitor(this);
+        cc._b.acceptVisitor(this);
     }
     
     public void visit(CodeExprParen cc) {
-        // TODO Auto-generated method stub
-        
+        cc._expr.acceptVisitor(this);
     }
     
     public void visit(CodeExprPostfix cc) {
-        // TODO Auto-generated method stub
-        
+        env.diag.report(E_NON_CONSTANT_EXPR, cc);
     }
     
     public void visit(CodeExprPrefix cc) {
-        // TODO Auto-generated method stub
-        
+        // TODO
     }
     
     public void visit(CodeExprId cc) {
-        // TODO Auto-generated method stub
-        
+        CSymbol sym = cc._scope.get(cc._id._s);
+        if(Type.ENUMERATOR != sym.type) {
+            env.diag.report(E_NON_CONSTANT_EXPR, cc);
+        } else {
+            cc._const_val = ((CodeEnumerator) sym.code)._optValue._const_val;
+            results.push(cc._const_val);
+        }
     }
     
     public void visit(CodeExprSizeofValue cc) {
-        // TODO Auto-generated method stub
-        
+        //cc._expr.acceptVisitor(this);
+        //results.push(new Integer(cc._expr._type.sizeOf()));
+        results.push(cc._const_val);
     }
     
     public void visit(CodeExprSizeofType cc) {
-        // TODO Auto-generated method stub
-        
+        //results.push(new Integer(cc._tname._type.sizeOf()));
+        results.push(cc._const_val);
     }
     
     public void visit(CodeExprCall cc) {
-        // TODO Auto-generated method stub
-        
+        env.diag.report(E_NON_CONSTANT_EXPR, cc);
     }
     
     public void visit(CodeExprSubscript cc) {
-        // TODO Auto-generated method stub
+        // TODO 
         
     }
     
     public void visit(CodeExprField cc) {
-        // TODO Auto-generated method stub
-        
+        env.diag.report(E_NON_CONSTANT_EXPR, cc);
     }
     
     public void visit(CodeExprPointsTo cc) {
-        // TODO Auto-generated method stub
-        
+        env.diag.report(E_NON_CONSTANT_EXPR, cc);
     }
     
 }

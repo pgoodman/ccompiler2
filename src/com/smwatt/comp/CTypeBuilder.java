@@ -23,9 +23,13 @@ import static com.smwatt.comp.CType.*;
 
 public class CTypeBuilder {
     
-    Env env;
+    private Env env;
+    private CType INVALID_TYPE;
     
-    public CTypeBuilder(Env senv) { env = senv; }
+    public CTypeBuilder(Env senv) { 
+        env = senv;
+        INVALID_TYPE = new CTypeInvalid();
+    }
     
     /**
      * Form a type given a specifier list and a declarator.
@@ -85,23 +89,28 @@ public class CTypeBuilder {
         if (dtor == null) {
             return base;
         }
-        else if (dtor instanceof C.CodeDeclaratorId) {
+        
+        if (dtor instanceof C.CodeDeclaratorId) {
             if (wantReturnTypeOnly) {
                 System.out.println("Case 1");
-                return new CTypeInvalid();
+                return INVALID_TYPE;
             }
             return base;
-        }
-        else if (dtor instanceof C.CodeDeclaratorInit) {
+        
+        // init declarator
+        } else if (dtor instanceof C.CodeDeclaratorInit) {
             if (wantReturnTypeOnly) {
                 // TODO error handling
                 System.out.println("Case 2");
-                return new CTypeInvalid();
+                return INVALID_TYPE;
             }
+            
             return formTypeFromDeclarator(
-                        base,((C.CodeDeclaratorInit) dtor)._dtor );
-        }
-        else if (dtor instanceof C.CodeDeclaratorFunction) {
+                base, ((C.CodeDeclaratorInit) dtor)._dtor
+            );
+        
+        // function declaration
+        } else if (dtor instanceof C.CodeDeclaratorFunction) {
             // E.g. int (**f)(char,...) => base=int, dtor=(**f)(char,...)
             C.CodeDeclaratorFunction fdtor = (C.CodeDeclaratorFunction) dtor;
             
@@ -110,10 +119,12 @@ public class CTypeBuilder {
             // functions aren't allowed to return arrays
             if(null != retType && retType instanceof CTypeArray) {
                 env.diag.report(E_FUNC_RETURN_ARRAY, dtor);
-                return new CTypeInvalid();
+                return INVALID_TYPE;
             }
             
-            if (wantReturnTypeOnly) return retType;
+            if (wantReturnTypeOnly) {
+                return retType;
+            }
             
             ArrayList<CType> argTypes = new ArrayList<CType>();
             
@@ -126,7 +137,7 @@ public class CTypeBuilder {
                     env.diag.report(
                         B_BUG, cc, "Multiple '...'s in function declarator list"
                     );
-                    return new CTypeInvalid();
+                    return INVALID_TYPE;
                 }
                 if (cc instanceof C.CodeId) {
                     // TODO: Handle old style function declarations.
@@ -150,17 +161,22 @@ public class CTypeBuilder {
                     env.diag.report(
                         B_BUG, cc, "Invalid code in function declarator list"
                     );
-                    return new CTypeInvalid();
+                    return INVALID_TYPE;
                 }
             }
-            if (hadId) argTypes = null;
+            if (hadId) {
+                argTypes = null;
+            }
+            
             return new CTypeFunction(retType, argTypes, hadDotDotDot);
-        }
-        else if (dtor instanceof C.CodeDeclaratorArray) {
+        
+        // array declarator
+        } else if (dtor instanceof C.CodeDeclaratorArray) {
+            
             if (wantReturnTypeOnly) {
                 // TODO error handling
                 System.out.println("Case 4");
-                return new CTypeInvalid();
+                return INVALID_TYPE;
             }
             
             C.CodeDeclaratorArray adtor = (C.CodeDeclaratorArray) dtor;
@@ -199,7 +215,7 @@ public class CTypeBuilder {
                 // need to have a dimension in multi-dimensional array
                 if(null == sub._optSize) {
                     env.diag.report(E_INCOMPLETE_MULTI_ARRAY, dtor);
-                    return new CTypeInvalid();
+                    return INVALID_TYPE;
                 }
             }
             
@@ -224,14 +240,21 @@ public class CTypeBuilder {
                 
                 for (C.CodeSpecifier spec : star._lspec) {
                     if (spec instanceof C.CodeSpecifierQualifier) {
-                        C.CodeSpecifierQualifier qspec =
-                            (C.CodeSpecifierQualifier) spec;
+                        
+                        C.CodeSpecifierQualifier qspec = (
+                            (C.CodeSpecifierQualifier) spec
+                        );
+                        
                         switch (qspec._spec._type) {
-                        case CTokenType.CONST: constCount++; break;
-                        case CTokenType.VOLATILE: volatileCount++; break;
-                        default: otherCount++;
+                        case CTokenType.CONST: 
+                            constCount++; break;
+                        case CTokenType.VOLATILE: 
+                            volatileCount++; break;
+                        default:
+                            otherCount++;
                         }
                     }
+                    
                     if (otherCount > 0) {
                         env.diag.report(
                             B_BUG, 
@@ -244,8 +267,13 @@ public class CTypeBuilder {
                         env.diag.report(E_POINTER_MULTI_QUALIF, spec);
                         return new CTypeInvalid();
                     }
-                    if (constCount > 0) base._isConst = true;
-                    if (volatileCount > 0) base._isVolatile = true;
+                    if (constCount > 0) {
+                        base._isConst = true;
+                    }
+                    
+                    if (volatileCount > 0) {
+                        base._isVolatile = true;
+                    }
                 }
                 star = star._optStar;
             }
@@ -255,7 +283,7 @@ public class CTypeBuilder {
             if (wantReturnTypeOnly) {
                 // TODO error handling
                 System.out.println("Case 5");
-                return new CTypeInvalid();
+                return INVALID_TYPE;
             }
             
             // ignore widths
@@ -265,7 +293,7 @@ public class CTypeBuilder {
         else {
             // TODO: type inference error.
             System.out.println("Case 7");
-            return new CTypeInvalid();
+            return INVALID_TYPE;
         }
     }
     
@@ -360,10 +388,12 @@ public class CTypeBuilder {
                 }
             }
             else if (spec instanceof C.CodeSpecifierStruct) {
+                
                 if (base != null) {
                     has_error = true;
                     env.diag.report(E_TOO_MANY_TYPE_SPECS, spec);
                 }
+                
                 C.CodeSpecifierStruct sspec = (C.CodeSpecifierStruct) spec;
                 if (sspec._optParts != null) {
                     
@@ -379,7 +409,7 @@ public class CTypeBuilder {
                     
                     for (C.Code d: ldecl) {
                         if (d instanceof C.CodeDeclaration) {
-                            fillFields(lfield, (C.CodeDeclaration) d, true);
+                            fillFields(lfield, (C.CodeDeclaration) d, true, base);
                         } else {
                             env.diag.report(B_BUG, d, "Invalid code in struct body");
                             return new CTypeInvalid();
@@ -419,7 +449,7 @@ public class CTypeBuilder {
                     
                     for (C.Code d: ldecl) {
                         if (d instanceof C.CodeDeclaration) {
-                            fillFields(lfield, (C.CodeDeclaration) d, false);
+                            fillFields(lfield, (C.CodeDeclaration) d, false, base);
                         } else {
                             env.diag.report(B_BUG, d, "Invalid code in union body");
                             return new CTypeInvalid();
@@ -500,8 +530,16 @@ public class CTypeBuilder {
                                     val = obj_val.intValue() + 1;
                                 }
                                 
+                                if(Env.DEBUG) {
+                                    System.out.println(
+                                        "DEBUG: enumerator " + en._id._s + 
+                                        " given value " + 
+                                        en._optValue._const_val
+                                    );
+                                }
                             }
-                            return false;
+                            
+                            return true;
                         }
                         
                     });
@@ -568,8 +606,8 @@ public class CTypeBuilder {
             }
             if (base instanceof CTypeIntegral) {
                 ((CTypeIntegral) base)._signed = signedCount - unsignedCount;
-            }
-            else {
+            
+            } else {
                 env.diag.report(E_SIGNED_NON_INTEGRAL_T, specifiers.get(0));
                 has_error = true;
             }
@@ -589,12 +627,12 @@ public class CTypeBuilder {
         }
         
         if(has_error) {
-            base = new CTypeInvalid();
+            base = INVALID_TYPE;
         }
         
         return base;
     }
-    private void fillFields(List<CTypeField> lfield, C.CodeDeclaration dcl, boolean in_struct) {
+    private void fillFields(List<CTypeField> lfield, C.CodeDeclaration dcl, boolean in_struct, CType parent_type) {
         List<C.CodeSpecifier>  lspec = dcl._lspec;
         List<C.CodeDeclarator> ldtor = dcl._ldtor;
                 
@@ -613,7 +651,13 @@ public class CTypeBuilder {
             
             CType t = formTypeFromDeclarator(base, dtor);
             C.CodeId optId = dtor.getOptId();
-            lfield.add(new CTypeField(optId, t));
+            
+            if(t == parent_type) {
+                env.diag.report(E_COMPOUND_CONTAIN_SELF, dtor);
+                lfield.add(new CTypeField(optId, INVALID_TYPE));
+            } else {
+                lfield.add(new CTypeField(optId, t));
+            }
         }
     }
 }
