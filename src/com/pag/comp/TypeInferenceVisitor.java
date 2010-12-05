@@ -16,6 +16,14 @@ import com.smwatt.comp.CType.CTypePointing;
 
 import static com.smwatt.comp.CType.*;
 
+/**
+ * Perform type deduction and type inference on the parse tree. This will
+ * implicitly convert the parse tree into an acyclic directed graph by 
+ * adding in extra code here and there to convert types, etc.
+ * 
+ * @author petergoodman
+ *
+ */
 public class TypeInferenceVisitor implements CodeVisitor {
     
     private Env env;
@@ -32,10 +40,12 @@ public class TypeInferenceVisitor implements CodeVisitor {
         printer = new CTypePrinter(System.out);
         
         CHAR_TYPE = new CTypeChar();
+        
         NULL_POINTER = new CodeExprCast(
             new CTypePointer(new CTypeVoid()), 
             new CodeIntegerConstant(0)
         );
+        
         DEFAULT_INT = new CTypeInt();
     }
     
@@ -471,19 +481,56 @@ public class TypeInferenceVisitor implements CodeVisitor {
         CType ta = cc._a._type;
         CType tb = cc._b._type;
         
+        
+        // step 1: pretend to compute a least upper bound on the two types
+        //         in order to make checking easier.
         switch(cc._op._type) {
-            case CTokenType.COMMA:
-            case CTokenType.VBAR_VBAR:
-            case CTokenType.AMP_AMP:
-            case CTokenType.VBAR:
-            case CTokenType.XOR:
-            case CTokenType.AMP:
+            case CTokenType.PLUS:
+            case CTokenType.MINUS:
+            case CTokenType.STAR:
+            case CTokenType.SLASH:
+            case CTokenType.MOD:
             case CTokenType.EQUALS:
             case CTokenType.NOT_EQUALS:
             case CTokenType.LT:
             case CTokenType.GT:
             case CTokenType.LT_EQ:
             case CTokenType.GT_EQ:
+                
+                boolean to_float = (
+                    ta instanceof CTypeFloat || tb instanceof CTypeFloat
+                );
+                
+                if(to_float) {
+                    
+                    // one of them is a float and the other can't be promoted
+                    // to a float
+                    if(!ta.canBeCastTo(tb) && !tb.canBeCastTo(ta)) {
+                        env.diag.report(E_INFIX_CANT_UNIFY, cc);
+                        return;
+                    }
+                }
+                
+                // pretend tb is bigger
+                if(ta.sizeOf(env) < tb.sizeOf(env)) {
+                    
+                } else {
+                    
+                }
+                
+                break;
+                
+            default:
+        }
+        
+        switch(cc._op._type) {
+            case CTokenType.COMMA:
+            
+            case CTokenType.VBAR:
+            case CTokenType.XOR:
+            case CTokenType.AMP:
+            
+            
             case CTokenType.LSH:
             case CTokenType.RSH:
             case CTokenType.PLUS:
@@ -491,7 +538,21 @@ public class TypeInferenceVisitor implements CodeVisitor {
             case CTokenType.STAR:
             case CTokenType.SLASH:
             case CTokenType.MOD:
+                
+            // relational + boolean contexts
+            case CTokenType.VBAR_VBAR:
+            case CTokenType.AMP_AMP:
+                
+                // fall-through
             
+            // relational
+            case CTokenType.EQUALS:
+            case CTokenType.NOT_EQUALS:
+            case CTokenType.LT:
+            case CTokenType.GT:
+            case CTokenType.LT_EQ:
+            case CTokenType.GT_EQ:
+                
         }
     }
 
