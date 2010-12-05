@@ -10,6 +10,8 @@ package com.smwatt.comp;
 import java.io.PrintStream;
 import java.util.List;
 
+import com.smwatt.comp.C.CodeDeclaratorParen;
+
 public class CCodePrinter implements C.CodeVisitor {
 	TabbingStream	_tout;
 	boolean			_isDebugMode = false;
@@ -79,7 +81,9 @@ public class CCodePrinter implements C.CodeVisitor {
 		_isDebugMode = isDebugMode;
 	}
 	public void visit(C.Code cc) {
-		cc.acceptVisitor(this);
+	    if(null != cc) {
+	        cc.acceptVisitor(this);
+	    }
 	}
 	public void visit(C.CodeUnit cc) {
 		//if (_isDebugMode) cc._scope.display(_tout); // TODO
@@ -430,4 +434,9 @@ public class CCodePrinter implements C.CodeVisitor {
 		_tout.print("->");
 		visit(cc._id);
 	}
+    public void visit(CodeDeclaratorParen cc) {
+        _tout.print("(");
+        visit(cc._decl);
+        _tout.print(")");
+    }
 }

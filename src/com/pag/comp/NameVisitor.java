@@ -6,6 +6,7 @@ import static com.pag.diag.Message.*;
 import com.pag.sym.CSymbol;
 import com.pag.sym.Env;
 import com.pag.sym.Type;
+import com.smwatt.comp.C.CodeDeclaratorParen;
 
 /**
  * Go through the parse tree and look at the uses of different types of
@@ -363,6 +364,10 @@ public class NameVisitor implements CodeVisitor {
             env.addSymbol(name, Type.ENUMERATOR, cc);
         }
     }
+    
+    public void visit(CodeDeclaratorParen cc) {
+        cc._decl.acceptVisitor(this);
+    }
 
     public void visit(CodeDeclaratorArray cc) {
         cc._scope = env.getScope();
@@ -509,9 +514,10 @@ public class NameVisitor implements CodeVisitor {
         // global scope or function body, no symbol exists with same name
         } else if(0 == func_declarator_count || pointer_declarator_count > 0) {
             //System.out.println("name=" + name +" in_typedef=" + in_typedef + " cc._is_typedef=" + cc._is_typedef);
+            cc._is_typedef = in_typedef || cc._is_typedef;
             env.addSymbol(
                 name, 
-                in_typedef || cc._is_typedef ? Type.TYPEDEF_NAME : Type.VARIABLE, 
+                cc._is_typedef ? Type.TYPEDEF_NAME : Type.VARIABLE, 
                 cc._id
             );
         }
@@ -732,11 +738,11 @@ public class NameVisitor implements CodeVisitor {
     }
 
     public void visit(CodeExprField cc) {
-        // TODO ?
+        cc._ob.acceptVisitor(this);
     }
 
     public void visit(CodeExprPointsTo cc) {
-        // TODO ?
+        cc._ptr.acceptVisitor(this);
     }
     
 }

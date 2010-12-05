@@ -121,43 +121,35 @@ public class FunctionVisitor implements CodeVisitor {
     }
 
     public void visit(CodeId cc) {
-        // TODO Auto-generated method stub
-        
+
     }
 
     public void visit(CodeTypeName cc) {
-        // TODO Auto-generated method stub
-        
+
     }
 
     public void visit(CodeString cc) {
-        // TODO Auto-generated method stub
-        
+
     }
 
     public void visit(CodeCharacterConstant cc) {
-        // TODO Auto-generated method stub
-        
+
     }
 
     public void visit(CodeIntegerConstant cc) {
-        // TODO Auto-generated method stub
-        
+
     }
 
     public void visit(CodeFloatingConstant cc) {
-        // TODO Auto-generated method stub
-        
+
     }
 
     public void visit(CodeEnumerationConstant cc) {
-        // TODO Auto-generated method stub
-        
+
     }
 
     public void visit(CodeDotDotDot cc) {
-        // TODO Auto-generated method stub
-        
+
     }
 
     public void visit(CodeSpecifierStorage cc) {
@@ -165,49 +157,38 @@ public class FunctionVisitor implements CodeVisitor {
     }
 
     public void visit(CodeSpecifierQualifier cc) {
-        // TODO Auto-generated method stub
-        
+
     }
 
     public void visit(CodeSpecifierType cc) {
-        // TODO Auto-generated method stub
-        
+
     }
 
     public void visit(CodeSpecifierTypedefName cc) {
-        // TODO Auto-generated method stub
-        
+
     }
 
     public void visit(CodeSpecifierStruct cc) {
-        // TODO Auto-generated method stub
-        
+
     }
 
     public void visit(CodeSpecifierUnion cc) {
-        // TODO Auto-generated method stub
-        
+
     }
 
     public void visit(CodeSpecifierEnum cc) {
-        // TODO Auto-generated method stub
-        
+
     }
 
     public void visit(CodeEnumerator cc) {
-        // TODO Auto-generated method stub
-        
+ 
     }
 
     public void visit(CodeDeclaratorArray cc) {
-        // TODO Auto-generated method stub
-        
+
     }
 
     public void visit(CodeDeclaratorFunction cc) {
-        //if(null != cc._optFn) {
-        //    cc._optFn.acceptVisitor(this);
-        //}
         func_id = cc.getOptId();
     }
 
@@ -216,31 +197,26 @@ public class FunctionVisitor implements CodeVisitor {
     }
 
     public void visit(CodeDeclaratorPointer cc) {
-        // TODO Auto-generated method stub
-        
+
     }
 
     public void visit(CodeDeclaratorWidth cc) {
-        // TODO Auto-generated method stub
-        
+ 
     }
 
     public void visit(CodeDeclaratorId cc) {
     }
 
     public void visit(CodePointerStar cc) {
-        // TODO Auto-generated method stub
-        
+
     }
 
     public void visit(CodeInitializerValue cc) {
-        // TODO Auto-generated method stub
-        
+
     }
 
     public void visit(CodeInitializerList cc) {
-        // TODO Auto-generated method stub
-        
+
     }
 
     public void visit(CodeStatBreak cc) {
@@ -303,73 +279,62 @@ public class FunctionVisitor implements CodeVisitor {
     }
 
     public void visit(CodeExprAssignment cc) {
-        // TODO Auto-generated method stub
-        
+
     }
 
     public void visit(CodeExprCast cc) {
-        // TODO Auto-generated method stub
-        
+
     }
 
     public void visit(CodeExprConditional cc) {
-        // TODO Auto-generated method stub
-        
+
     }
 
     public void visit(CodeExprInfix cc) {
-        // TODO Auto-generated method stub
-        
+
     }
 
     public void visit(CodeExprParen cc) {
-        // TODO Auto-generated method stub
-        
+
     }
 
     public void visit(CodeExprPostfix cc) {
-        // TODO Auto-generated method stub
-        
     }
 
     public void visit(CodeExprPrefix cc) {
-        // TODO Auto-generated method stub
-        
+
     }
 
     public void visit(CodeExprId cc) {
-        // TODO Auto-generated method stub
-        
+
     }
 
     public void visit(CodeExprSizeofValue cc) {
-        // TODO Auto-generated method stub
-        
+
     }
 
     public void visit(CodeExprSizeofType cc) {
-        // TODO Auto-generated method stub
-        
+
     }
 
     public void visit(CodeExprCall cc) {
-        // TODO Auto-generated method stub
-        
+
     }
 
     public void visit(CodeExprSubscript cc) {
-        // TODO Auto-generated method stub
-        
+
     }
 
     public void visit(CodeExprField cc) {
-        // TODO Auto-generated method stub
-        
+
     }
 
     public void visit(CodeExprPointsTo cc) {
-        // TODO Auto-generated method stub
-        
+
+    }
+
+    public void visit(CodeDeclaratorParen cc) {
+
     }
     
 }

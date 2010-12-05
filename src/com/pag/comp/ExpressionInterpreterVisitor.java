@@ -8,6 +8,7 @@ import com.pag.sym.Type;
 import static com.pag.diag.Message.*;
 
 import com.smwatt.comp.C.Code;
+
 import static com.smwatt.comp.C.*;
 
 /**
@@ -251,13 +252,16 @@ public class ExpressionInterpreterVisitor implements CodeVisitor {
     }
     
     public void visit(CodeExprSizeofValue cc) {
-        //cc._expr.acceptVisitor(this);
-        //results.push(new Integer(cc._expr._type.sizeOf()));
+        if(null == cc._const_val) {
+            cc._const_val = new Integer(cc._expr._type.sizeOf(env));
+        }
         results.push(cc._const_val);
     }
     
     public void visit(CodeExprSizeofType cc) {
-        //results.push(new Integer(cc._tname._type.sizeOf()));
+        if(null == cc._const_val) {
+            cc._const_val = new Integer(cc._tname._type.sizeOf(env));
+        }
         results.push(cc._const_val);
     }
     
@@ -275,6 +279,10 @@ public class ExpressionInterpreterVisitor implements CodeVisitor {
     }
     
     public void visit(CodeExprPointsTo cc) {
+        env.diag.report(E_NON_CONSTANT_EXPR, cc);
+    }
+
+    public void visit(CodeDeclaratorParen cc) {
         env.diag.report(E_NON_CONSTANT_EXPR, cc);
     }
     

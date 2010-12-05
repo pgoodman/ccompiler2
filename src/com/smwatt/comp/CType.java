@@ -10,6 +10,9 @@ package com.smwatt.comp;
 import java.util.List;
 import java.util.ArrayList;
 
+import com.pag.sym.Env;
+import static com.pag.diag.Message.E_COMOUND_DEPEND_SIZEOF_SELF;
+
 // !!!
 // !!! simplifying assumption: all types with size < 4 bytes are rounded up
 // !!! to 4 bytes. the standard only guarantees minimum sizes ;)
@@ -39,28 +42,25 @@ public abstract class CType {
 	}
 	
 	// TODO
-	public boolean canBeAssignedTo(CType that) {
-		return true;
-	}
+	abstract public boolean canBeAssignedTo(CType that);
+	
 	// TODO
-	public boolean canBePromotedTo(CType that) {
-		return true;
-	}
+	abstract public boolean canBePromotedTo(CType that);
 	// TODO
-	public boolean canBeCastTo(CType that) {
-		return true;
-	}
+	abstract public boolean canBeCastTo(CType that);
+	
 	// TODO
 	// Returns <code>null</code> if the types do not unify.
-	public CType unify(CType that) {
-		return this;
-	}
+	//abstract public CType unify(CType that);
 	
-	abstract public int sizeOf();
+	abstract public int sizeOf(Env e);
+	
+	public static abstract class CTypeAbstractPointer extends CType { }
 	
 	/**
      * Used for typedefs, named struct-s, union-s and enum-s.
      */
+	/*
     public static abstract class CTypeNamed extends CType {
         C.CodeId        _id;
         CType           _optReally;
@@ -71,7 +71,7 @@ public abstract class CType {
         CType realType() {
             return (_optReally == null) ? new CTypeInvalid() : _optReally;
         }
-    }
+    }*/
     
     public static abstract class CTypeArithmetic extends CType {
         /**
@@ -95,20 +95,90 @@ public abstract class CType {
          *  0 => default.
          */
         public int _signed = 0;
+
+        @Override
+        public boolean canBeAssignedTo(CType that) {
+            return (
+                this == that
+             || (that instanceof CTypeIntegral /* && (_signed == ((CTypeIntegral) that)._signed)*/ )
+             || (that instanceof CTypeFloating) 
+            );
+        }
+
+        @Override
+        public boolean canBeCastTo(CType that) {
+            return (
+                canBeAssignedTo(that) || (that instanceof CTypePointing)
+            );
+        }
+
+        @Override
+        public boolean canBePromotedTo(CType that) {
+            if(that instanceof CTypeIntegral) {
+                CTypeIntegral intg = (CTypeIntegral) that;
+                /*if(_signed == intg._signed) {
+                    return _length <= intg._length;
+                } else {
+                    if(_signed)
+                }*/
+                return _length <= intg._length;
+            }
+            return (that instanceof CTypeFloating);
+        }
     }
     
-    public static abstract class CTypeFloating extends CTypeArithmetic { }
+    public static abstract class CTypeFloating extends CTypeArithmetic {
+        @Override
+        public boolean canBeAssignedTo(CType that) {
+            return (
+                this == that
+             || that instanceof CTypeIntegral
+             || that instanceof CTypeFloating
+            );
+        }
+
+        @Override
+        public boolean canBeCastTo(CType that) {
+            return canBeAssignedTo(that);
+        }
+
+        @Override
+        public boolean canBePromotedTo(CType that) {
+            return (
+                this == that
+             || (
+                     that instanceof CTypeFloating 
+                  && _length <= ((CTypeFloating) that)._length
+                )
+            );
+        }
+    }
     
-    public static abstract class CTypePointing extends CType {
-        CType _pointeeType;
+    public static abstract class CTypePointing extends CTypeAbstractPointer {
+        public CType _pointeeType;
     }
     
     public static class CTypeInvalid extends CType { 
         public void acceptVisitor(CTypeVisitor v) { v.visit(this); }
 
         @Override
-        public int sizeOf() {
+        public int sizeOf(Env e) {
             return 0;
+        }
+
+        @Override
+        public boolean canBeAssignedTo(CType that) {
+            return false;
+        }
+
+        @Override
+        public boolean canBeCastTo(CType that) {
+            return false;
+        }
+
+        @Override
+        public boolean canBePromotedTo(CType that) {
+            return false;
         }
     }
     
@@ -116,8 +186,23 @@ public abstract class CType {
         public void acceptVisitor(CTypeVisitor v) { v.visit(this); }
 
         @Override
-        public int sizeOf() {
+        public int sizeOf(Env e) {
             return 0;
+        }
+
+        @Override
+        public boolean canBeAssignedTo(CType that) {
+            return (that instanceof CTypeVoid);
+        }
+
+        @Override
+        public boolean canBeCastTo(CType that) {
+            return false;
+        }
+
+        @Override
+        public boolean canBePromotedTo(CType that) {
+            return false;
         }
     }
     
@@ -125,7 +210,7 @@ public abstract class CType {
         public void acceptVisitor(CTypeVisitor v) { v.visit(this); }
 
         @Override
-        public int sizeOf() {
+        public int sizeOf(Env e) {
             if(0 == _length) {
                 return 4;
             } else if(0 < _length) {
@@ -147,21 +232,22 @@ public abstract class CType {
         public void acceptVisitor(CTypeVisitor v) { v.visit(this); }
 
         @Override
-        public int sizeOf() {
+        public int sizeOf(Env e) {
             return 4; //1;
         }
     }
     
     public static class CTypeFloat extends CTypeFloating {
         public void acceptVisitor(CTypeVisitor v) { v.visit(this); }
-        public int sizeOf() {
+        
+        public int sizeOf(Env e) {
             return 4;
         }
     }
     
     public static class CTypeDouble extends CTypeFloating { 
         public void acceptVisitor(CTypeVisitor v) { v.visit(this); }
-        public int sizeOf() {
+        public int sizeOf(Env e) {
             return _length != 0 ? 16 : 8;
         }
     }
@@ -177,33 +263,107 @@ public abstract class CType {
      * _argTypes.size() == 0 and _moreArgs == false.
      */
     public static class CTypeFunction extends CType {
-        CType                   _retType;
+        public CType            _retType;
         public List<CType>      _argTypes;
-        boolean                 _moreArgs = false;  // Has "..." ?
+        public boolean          _moreArgs = false;  // Has "..." ?
         
-        CTypeFunction(CType returnType, List<CType> argTypes) {
-            _retType  = returnType;
-            _argTypes = argTypes == null ? new ArrayList<CType>() : argTypes;
-            _moreArgs = argTypes == null;
+        public CTypeFunction(CType returnType, List<CType> argTypes) {
+            init(returnType, argTypes, argTypes == null);
         }
-        CTypeFunction(CType returnType, List<CType> argTypes, boolean moreArgs) {
+        public CTypeFunction(CType returnType, List<CType> argTypes, boolean moreArgs) {
+            init(returnType, argTypes, moreArgs);
+        }
+        
+        public CTypeFunction() {
+            
+        }
+        
+        public void init(CType returnType, List<CType> argTypes, boolean moreArgs) {
             _retType  = returnType;
             _argTypes = argTypes == null ? new ArrayList<CType>() : argTypes;
             _moreArgs = moreArgs;
         }
+        
         public void setMoreArgs() { _moreArgs = true; }
         
         public void acceptVisitor(CTypeVisitor v) { v.visit(this); }
         
         @Override
-        public int sizeOf() {
+        public int sizeOf(Env e) {
+            return 1;
+        }
+        @Override
+        public boolean canBeAssignedTo(CType that) {
+            if(that instanceof CTypeFunction) {
+                CTypeFunction func = (CTypeFunction) that;
+                if(this == that) {
+                    return true;
+                } else if(_retType != func._retType) {
+                    return false;
+                } else if(_argTypes.size() != func._argTypes.size()) {
+                    return false;
+                } else {
+                    for(int i = 0; i < _argTypes.size(); ++i) {
+                        if(_argTypes.get(i) != func._argTypes.get(i)) {
+                            return false;
+                        }
+                    }
+                }
+                return true;
+            }
+            return false;
+        }
+        @Override
+        public boolean canBeCastTo(CType that) {
+            return that instanceof CTypeFunction;
+        }
+        @Override
+        public boolean canBePromotedTo(CType that) {
+            return false;
+        }
+    }
+    
+    public static class CTypeFunctionPointer extends CTypePointing {
+        
+        // counter to keep track of the number of times we've taking the
+        // address of the function.
+        public int _count;
+        
+        public CTypeFunctionPointer(CType pointeeType, int count) {
+            _pointeeType = pointeeType;
+            _count = count;
+        }
+
+        @Override
+        public boolean canBeAssignedTo(CType that) {
+            return (
+                that instanceof CTypeFunctionPointer 
+             && (_pointeeType.canBeAssignedTo(
+                    ((CTypeFunctionPointer) that)._pointeeType
+                ))
+            );
+        }
+
+        @Override
+        public boolean canBeCastTo(CType that) {
+            return that instanceof CTypeFunctionPointer;
+        }
+
+        @Override
+        public boolean canBePromotedTo(CType that) {
+            return false;
+        }
+
+        @Override
+        public int sizeOf(Env e) {
             return 8;
         }
     }
+    
     public static class CTypeArray extends CTypePointing {
         CTypeConstExpr          _optSize;
         
-        CTypeArray(CType elementType, CTypeConstExpr optSize) {
+        public CTypeArray(CType elementType, CTypeConstExpr optSize) {
             _pointeeType = elementType;
             _optSize     = optSize;
         }
@@ -211,26 +371,86 @@ public abstract class CType {
         public void acceptVisitor(CTypeVisitor v) { v.visit(this); }
 
         @Override
-        public int sizeOf() {
+        public int sizeOf(Env e) {
             
             // size of a pointer
             if(null == _optSize) {
                 return 8;
             }
             
-            return ((Integer) _optSize._expr._const_val).intValue() * _pointeeType.sizeOf();
+            return (
+                (Integer) e.interpret(_optSize._expr)
+            ).intValue() * _pointeeType.sizeOf(e);
+        }
+
+        @Override
+        public boolean canBeAssignedTo(CType that) {
+            if(this == that) {
+                return true;
+            } else if(that instanceof CTypePointing) {
+                return _pointeeType.canBeAssignedTo(
+                    ((CTypePointing) that)._pointeeType
+                );
+            }
+            return false;
+        }
+
+        @Override
+        public boolean canBeCastTo(CType that) {
+            return that instanceof CTypePointing;
+        }
+
+        @Override
+        public boolean canBePromotedTo(CType that) {
+            return false;
         }
     }
     public static class CTypePointer extends CTypePointing {
-        public CTypePointer(CType pointeeType) {
+        private CTypePointer(CType pointeeType) {
             _pointeeType = pointeeType;
+        }
+        
+        public static CTypePointing optNew(CType pointeeType) {
+            if(pointeeType instanceof CTypeFunction) {
+                return new CTypeFunctionPointer(pointeeType, 0);
+            
+            // handle the case where we can reference a function directly
+            // or reference it with an & and still get a function pointer,
+            // but once we do &&, we need to get a pointer to a function
+            // pointer.
+            } else if(pointeeType instanceof CTypeFunctionPointer) {
+                CTypeFunctionPointer fptr = (CTypeFunctionPointer) pointeeType;
+                if(0 == fptr._count) {
+                    ++fptr._count;
+                    return fptr;
+                }
+            }
+            return new CTypePointer(pointeeType);
         }
         
         public void acceptVisitor(CTypeVisitor v) { v.visit(this); }
 
         @Override
-        public int sizeOf() {
+        public int sizeOf(Env e) {
             return 8;
+        }
+
+        @Override
+        public boolean canBeAssignedTo(CType that) {
+            return that instanceof CTypePointing && (
+                _pointeeType.canBeAssignedTo(((CTypePointing) that)._pointeeType)
+             || _pointeeType instanceof CTypeVoid
+            );
+        }
+
+        @Override
+        public boolean canBeCastTo(CType that) {
+            return that instanceof CTypePointer;
+        }
+
+        @Override
+        public boolean canBePromotedTo(CType that) {
+            return that == this;
         }
     }
     
@@ -244,14 +464,51 @@ public abstract class CType {
         public void acceptVisitor(CTypeVisitor v) { v.visit(this); }
 
         @Override
-        public int sizeOf() {
+        public int sizeOf(Env e) {
             return 4;
         }
+
+        @Override
+        public boolean canBeAssignedTo(CType that) {
+            return that instanceof CTypeIntegral;
+        }
+
+        @Override
+        public boolean canBeCastTo(CType that) {
+            return that instanceof CTypeArithmetic;
+        }
+
+        @Override
+        public boolean canBePromotedTo(CType that) {
+            return that instanceof CTypeIntegral;
+        }
     }
-    public static class CTypeStruct extends CType { 
-        C.CodeId            _optId;
-        List<CTypeField>    _fields;
+    
+    public abstract static class CTypeCompound extends CType {
+        public List<CTypeField>    _fields;
         int _size           = -1;
+        C.CodeId            _optId;
+        
+        /**
+         * Go get some source position anywhere in this type.
+         * @return
+         */
+        protected SourcePosition getSomeSourcePosition() {
+            if(null != _optId) {
+                return _optId.getSourcePosition();
+            }
+            
+            for(CTypeField ff : _fields) {
+                if(null != ff._id) {
+                    return ff._id.getSourcePosition();
+                }
+            }
+            
+            return null;
+        }
+    }
+    
+    public static class CTypeStruct extends CTypeCompound {      
         
         CTypeStruct(C.CodeId optId, List<CTypeField> fields)
         { _optId = optId; _fields = fields; }
@@ -259,35 +516,87 @@ public abstract class CType {
         public void acceptVisitor(CTypeVisitor v) { v.visit(this); }
 
         @Override
-        public int sizeOf() {
-            if(-1 != _size) {
+        public int sizeOf(Env e) {
+            if(0 <= _size) {
                 return _size;
+                
+            // trying to compute the size of this type already
+            } else if(-2 == _size) {
+                e.diag.report(
+                    E_COMOUND_DEPEND_SIZEOF_SELF,
+                    getSomeSourcePosition()
+                );
+                return 0;
             }
             
-            _size = 0;
+            int size = 0;
+            _size = -2;
             for(CTypeField field : _fields) {
-                _size += field.sizeOf();
+                size += field.sizeOf(e);
             }
-            return _size;
+            _size = size;
+            return size;
+        }
+
+        @Override
+        public boolean canBeAssignedTo(CType that) {
+            return that == this;
+        }
+
+        @Override
+        public boolean canBeCastTo(CType that) {
+            return that == this;
+        }
+
+        @Override
+        public boolean canBePromotedTo(CType that) {
+            return that == this;
         }
     }
-    public static class CTypeUnion  extends CType { 
-        C.CodeId            _optId;
-        List<CTypeField>    _branches;
-        int _size           = -1;
+    public static class CTypeUnion  extends CTypeCompound { 
+        
         
         CTypeUnion(C.CodeId optId, List<CTypeField> branches)
-        { _optId = optId; _branches = branches; }
+        { _optId = optId; _fields = branches; }
     
         public void acceptVisitor(CTypeVisitor v) { v.visit(this); }
 
         @Override
-        public int sizeOf() {
-            _size = 0;
-            for(CTypeField field : _branches) {
-                _size = Math.max(_size, field.sizeOf());
+        public int sizeOf(Env e) {
+            
+            if(0 <= _size) {
+                return _size;
+            
+            // trying to compute the size of this type already
+            } else if(-2 == _size) {
+                e.diag.report(
+                    E_COMOUND_DEPEND_SIZEOF_SELF,
+                    getSomeSourcePosition()
+                );
             }
-            return _size;
+            
+            int size = 0;
+            _size = -2;
+            for(CTypeField field : _fields) {
+                size = Math.max(_size, field.sizeOf(e));
+            }
+            _size = size;
+            return size;
+        }
+
+        @Override
+        public boolean canBeAssignedTo(CType that) {
+            return that == this;
+        }
+
+        @Override
+        public boolean canBeCastTo(CType that) {
+            return that == this;
+        }
+
+        @Override
+        public boolean canBePromotedTo(CType that) {
+            return that == this;
         }
     }
     
@@ -339,14 +648,15 @@ public abstract class CType {
     public static class CTypeConstExpr {
         C.CodeExpr _expr;
         
-        CTypeConstExpr(C.CodeExpr expr) {
+        public CTypeConstExpr(C.CodeExpr expr) {
             _expr = expr;
         }
         static CTypeConstExpr optNew(C.CodeExpr optExpr) {
-            if (optExpr == null) 
+            if (optExpr == null) {
                 return null;
-            else
+            } else {
                 return new CTypeConstExpr(optExpr);
+            }
         }
         
         public void acceptVisitor(CTypeVisitor v) { v.visit(this); }
@@ -361,24 +671,25 @@ public abstract class CType {
         public void acceptVisitor(CTypeVisitor v) { v.visit(this); }
     }
     public static class CTypeField {
-        C.CodeId                _id;
-        CType                   _type;
-        CTypeConstExpr          _optWidth = null; // Useful non-null.
+        public C.CodeId                _id;
+        public CType                   _type;
+        
+        //CTypeConstExpr          _optWidth = null; // Useful non-null.
         int                     _size = -1;
         
         CTypeField(C.CodeId id, CType type) {
             _id = id; _type = type;
         }
-        CTypeField(C.CodeId id, CType type, CTypeConstExpr optWidth) {
-            _id = id; _type = type; _optWidth = optWidth;
-        }
+        //CTypeField(C.CodeId id, CType type /* CTypeConstExpr optWidth */) {
+        //    _id = id; _type = type; //_optWidth = optWidth;
+        //}
         public void acceptVisitor(CTypeVisitor v) { v.visit(this); }
         
-        public int sizeOf() {
+        public int sizeOf(Env e) {
             if(-1 != _size) {
                 return _size;
             }
-            _size = _type.sizeOf();
+            _size = _type.sizeOf(e);
             return _size;
         }
     }

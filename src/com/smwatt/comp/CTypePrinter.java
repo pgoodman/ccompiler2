@@ -116,7 +116,7 @@ public class CTypePrinter implements CTypeVisitor {
 	    if(!currently_printing.contains(ct)) {
 	        currently_printing.add(ct);
 	        openElement("union", ct, ct._optId);
-	        for (CTypeField branch: ct._branches)  visit(branch);
+	        for (CTypeField branch: ct._fields)  visit(branch);
 	        _xo.endElement();
 	        currently_printing.remove(ct);
 	    } else {
@@ -158,7 +158,7 @@ public class CTypePrinter implements CTypeVisitor {
 	public void visit(CTypeField ob) {
 		openElement("field", null, ob._id);
 		visit(ob._type);
-		putOptConstExpr("width", ob._optWidth);
+		//putOptConstExpr("width", ob._optWidth);
 		_xo.endElement();
 	}
 	public void putOptConstExpr(String tag, CTypeConstExpr ct) {

@@ -51,6 +51,7 @@ public enum Message {
     N_COMPOUND_TYPE_REDEF   (NOTE,          "Forward declaration of type '%% %%' is redundant. Previous declaration was at %%."),
     
     E_ENUMERATOR_SHADOW     (ERROR,         "The enumeration constant '%%' shadows a symbol of the same name which was declared at %%."),
+    E_ENUMERATOR_INTEGRAL   (ERROR,         "Enumeration constants must have integral type."),
     
     E_SIGNED_NON_INTEGRAL_T (ERROR,         "Only integral types can be un/signed."),
     E_SHORT_LONG_NON_INTEGRAL_T (ERROR,     "Only integral/floating point types can be short/long."),
@@ -66,9 +67,25 @@ public enum Message {
     E_FUNC_RETURN_ARRAY     (ERROR,         "Functions are not allowed to return arrays."),
     E_POINTER_MULTI_QUALIF  (ERROR,         "Pointer declarators can only have one type qualifier."),
     R_FIELD_WIDTH_STRUCT_ONLY(RECOVERABLE,  "Field widths can only be specified inside of structs."),
+    E_FIELD_WIDTH_INT_ONLY  (ERROR,         "Field widths can only be specified for integral types."),
+    E_FIELD_WIDTH_POS       (ERROR,         "Structure field widths must evaluate to non-zero positive integers."),
+    E_FIELD_WIDTH_TOO_WIDE  (ERROR,         "Structure field widths cannot exceed the width of the type of the field on which they are declared."),
     E_COMPOUND_CONTAIN_SELF (ERROR,         "A compound type (struct,union) cannot contain itself as a field. To do this, use a pointer to itself."),
+    E_COMOUND_DEPEND_SIZEOF_SELF(ERROR,     "A compound type (struct,union) depends on the size of itself. For example: \n    struct foo {\n        int bar[sizeof(struct foo);\n    }"),
+    E_SYMBOL_FUNC_TYPE      (ERROR,         "This symbol cannot have a function type. Did you mean to use a function pointer?"),
     
     E_NON_CONSTANT_EXPR     (ERROR,         "Cannot evaluate non-constant expression."),
+    
+    E_EXPR_NOT_COMPOUND_T   (ERROR,         "Expression does not have struct/union type."),
+    E_EXPR_NOT_COMPOUND_PT  (ERROR,         "Expression does not have struct/union pointer type."),
+    
+    E_SUBSCRIPT_POINTER     (ERROR,         "Cannot take subscript of value with non-pointer/array type."),
+    E_SUBSCRIPT_INTEGRAL    (ERROR,         "The subscript operator expects an expression of integral type."),
+    
+    E_CALL_FUNC_PTR         (ERROR,         "Cannot perform a function call on an expression that doesn't have a function pointer type."),
+    E_CALL_FUNC_MISSING_ARGS(ERROR,         "Too few parameters were passed to the function to be called."),
+    E_CALL_FUNC_EXTRA_ARGS  (ERROR,         "Too many parameters were passed to the function to be called."),
+    E_CALL_BAD_ARG_TYPE     (ERROR,         "This function parameter's type is not compatible with the expected type."),
     
     B_BUG                   (BUG,           "The following bug was reported: %%."),;
     

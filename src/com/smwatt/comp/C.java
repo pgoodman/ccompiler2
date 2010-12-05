@@ -11,8 +11,6 @@ import java.util.ArrayList;
 import java.util.Hashtable;
 import java.util.List;
 
-import com.pag.sym.CSymbol;
-import com.pag.sym.Env;
 import com.pag.sym.Scope;
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -60,6 +58,7 @@ public class C {
         public void visit(CodeDeclaratorWidth cc);
         public void visit(CodeDeclaratorId cc);
         public void visit(CodePointerStar cc);
+        public void visit(CodeDeclaratorParen cc);
     
         public void visit(CodeInitializerValue cc);
         public void visit(CodeInitializerList cc);
@@ -276,7 +275,10 @@ public class C {
     }
     static public class CodeIntegerConstant extends CodeConstant {
     	CodeIntegerConstant(String s) { super(s); }
-    
+    	public CodeIntegerConstant(int i) {
+    	    super("");
+    	    _const_val = new Integer(i);
+    	}
     	public void acceptVisitor(CodeVisitor v) { v.visit(this); }
     }
     
@@ -511,10 +513,31 @@ public class C {
     	public CodeId getOptId() {
     		return _id;
     	}
+    	
     	public CodeDeclaratorFunction getOptFunction() {
     		return null;
     	}
     }
+    
+    static public class CodeDeclaratorParen extends CodeDeclarator {
+        public CodeDeclarator _decl;
+        
+        CodeDeclaratorParen(CodeDeclarator decl) {
+            _decl = decl;
+            copyPosition(decl);
+        }
+        
+        public void acceptVisitor(CodeVisitor v) { v.visit(this); }
+        
+        public CodeId getOptId() {
+            return _decl.getOptId();
+        }
+        
+        public CodeDeclaratorFunction getOptFunction() {
+            return _decl.getOptFunction();
+        }
+    }
+    
     static public class CodePointerStar extends Code {
     	public List<CodeSpecifier>   _lspec;
     	public CodePointerStar       _optStar;
@@ -716,6 +739,12 @@ public class C {
     	    _expr = expr; 
     	    copyPosition(typename);
 	    }
+    	
+    	// a cast we know that will work
+    	public CodeExprCast(CType dest_type, CodeExpr expr) {
+    	    _expr = expr;
+    	    _type = dest_type;
+    	}
     	
     	public void acceptVisitor(CodeVisitor v) { v.visit(this); }
     }

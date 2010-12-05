@@ -10,6 +10,7 @@ import com.smwatt.comp.CTypePrinter;
 import com.smwatt.comp.CType;
 import com.smwatt.comp.C.Code;
 import com.smwatt.comp.C.CodeDeclaration;
+import com.smwatt.comp.CType.CTypePointing;
 
 import static com.smwatt.comp.CType.*;
 
@@ -18,14 +19,16 @@ public class TypeInferenceVisitor implements CodeVisitor {
     private Env env;
     private CTypeBuilder builder;
     private CTypePrinter printer;
-    private CType STRING_TYPE;
+    //private CType STRING_TYPE;
+    private CType CHAR_TYPE;
     
     public TypeInferenceVisitor(Env ee) {
         env = ee;
         builder = new CTypeBuilder(ee);
         printer = new CTypePrinter(System.out);
         
-        STRING_TYPE = new CTypePointer(new CTypeChar());
+        //STRING_TYPE = new CTypePointer(new CTypeChar());
+        CHAR_TYPE = new CTypeChar();
     }
 
     public void visit(Code cc) {
@@ -83,6 +86,15 @@ public class TypeInferenceVisitor implements CodeVisitor {
             CodeId id = dtor.getOptId();
             if(null != id) {
                 id._type = dtor._type;
+                
+                // makes sure we don't try to use function types unless they
+                // are function pointers
+                if(!dtor._is_typedef) {
+                    if(id._type instanceof CTypeFunction) {
+                        env.diag.report(E_SYMBOL_FUNC_TYPE, id);
+                        id._type = builder.INVALID_TYPE;
+                    }
+                }
             }
             
             // we need to check the type of constant expressions
@@ -107,16 +119,33 @@ public class TypeInferenceVisitor implements CodeVisitor {
     public void visit(CodeId cc) { }
 
     public void visit(CodeTypeName cc) {
+        for(CodeSpecifier spec : cc._lspec) {
+            spec.acceptVisitor(this);
+        }
+        if(null != cc._dtor) {
+            cc._dtor.acceptVisitor(this);
+        }
         cc._type = builder.formType(cc._lspec, cc._dtor);
     }
 
     public void visit(CodeString cc) {
-        cc._type = STRING_TYPE;
+        
+        // add in the null-terminating character.
+        cc._s = cc._s + '\0';
+        
+        // this ensures that the string will have the right dimension
+        // for the sizeof operator.
+        cc._type = new CTypeArray(
+            CHAR_TYPE, new CTypeConstExpr(
+                new CodeIntegerConstant(cc._s.length())
+            )
+        );
+        
         cc._const_val = cc._s;
     }
 
     public void visit(CodeCharacterConstant cc) {
-        cc._type = new CTypeChar();
+        cc._type = CHAR_TYPE;
         char[] as_array = cc._s.toCharArray();
         cc._const_val = new Integer(as_array[0]);
     }
@@ -127,9 +156,8 @@ public class TypeInferenceVisitor implements CodeVisitor {
     }
 
     public void visit(CodeFloatingConstant cc) {
-        // TODO: float or double?
-        cc._type = new CTypeFloat();
-        cc._const_val = Float.valueOf(cc._s);
+        cc._type = new CTypeDouble();
+        cc._const_val = Double.valueOf(cc._s);
     }
 
     public void visit(CodeEnumerationConstant cc) {
@@ -173,8 +201,15 @@ public class TypeInferenceVisitor implements CodeVisitor {
     public void visit(CodeEnumerator cc) {
         if(null != cc._optValue) {
             cc._optValue.acceptVisitor(this);
-            // TODO: check that type is integer
+            
+            if(!(cc._optValue._type instanceof CTypeIntegral)) {
+                env.diag.report(E_ENUMERATOR_INTEGRAL, cc);
+            }
         }
+    }
+    
+    public void visit(CodeDeclaratorParen cc) {
+        cc._decl.acceptVisitor(this);
     }
 
     public void visit(CodeDeclaratorArray cc) {
@@ -182,24 +217,27 @@ public class TypeInferenceVisitor implements CodeVisitor {
             cc._optIndex.acceptVisitor(this);
             // TODO check that type is integer
         }
+        if(null != cc._optAr) {
+            cc._optAr.acceptVisitor(this);
+        }
     }
 
     public void visit(CodeDeclaratorFunction cc) {
+        
+        cc._optFn.acceptVisitor(this);
+        
         if(null != cc._argl) {
             for(Code arg : cc._argl) {
-                arg.acceptVisitor(this);
+                if(null != arg) {
+                    arg.acceptVisitor(this);
+                }
             }
         }
-        
-        // note: functions can't return arrays, and so we don't need
-        //       to worry about checking any types of constant expressions
-        //       in the return type of a function.
     }
 
     public void visit(CodeDeclaratorInit cc) {
         cc._initializer.acceptVisitor(this);
         cc._dtor.acceptVisitor(this);
-        cc._initializer.acceptVisitor(this);
     }
 
     public void visit(CodeDeclaratorPointer cc) {
@@ -225,6 +263,9 @@ public class TypeInferenceVisitor implements CodeVisitor {
     public void visit(CodePointerStar cc) {
         if(null != cc._optStar) {
             cc._optStar.acceptVisitor(this);
+        }
+        for(CodeSpecifier spec : cc._lspec) {
+            spec.acceptVisitor(this);
         }
     }
 
@@ -407,77 +448,160 @@ public class TypeInferenceVisitor implements CodeVisitor {
     }
 
     public void visit(CodeExprSizeofValue cc) {
-        cc._expr.acceptVisitor(this);
-        
- 
-        // TODO check expression?
-        cc._type = new CSizeT();
-        
         env.addPhase(new ParseTreeNodePhase(cc) {
             public boolean apply(Env env, Code code) {
                 CodeExprSizeofValue val = (CodeExprSizeofValue) node;
-                val._const_val = new Integer(val._expr._type.sizeOf());                
-                if(Env.DEBUG) {
-                    System.out.println("DEBUG: sizeof(expr) " + val + " = " + val._const_val);
+                if(null == val._const_val) {
+                    val._const_val = new Integer(val._expr._type.sizeOf(env));                
+                    if(Env.DEBUG) {
+                        System.out.println("DEBUG: sizeof(expr) " + val + " = " + val._const_val);
+                    }
                 }
                 return true;
             }
         });
+        
+        cc._expr.acceptVisitor(this);
+        
+        // TODO check expression?
+        cc._type = new CSizeT();
     }
 
     public void visit(CodeExprSizeofType cc) {
+
+        env.addPhase(new ParseTreeNodePhase(cc) {
+            public boolean apply(Env env, Code code) {
+                CodeExprSizeofType ty = (CodeExprSizeofType) node;
+                if(null == ty._const_val) {
+                    ty._const_val = new Integer(ty._tname._type.sizeOf(env));                
+                    if(Env.DEBUG) {
+                        System.out.println("DEBUG sizeof(type) " + ty + " = " + ty._const_val);
+                    }
+                }
+                return true;
+            }
+        });
+        
         // TODO check type?
                 
         cc._tname.acceptVisitor(this);
         cc._type = new CSizeT();
-        
-        env.addPhase(new ParseTreeNodePhase(cc) {
-            public boolean apply(Env env, Code code) {
-                CodeExprSizeofType ty = (CodeExprSizeofType) node;
-                ty._const_val = new Integer(ty._tname._type.sizeOf());                
-                if(Env.DEBUG) {
-                    System.out.println("DEBUG sizeof(type) " + ty + " = " + ty._const_val);
-                }
-                return true;
-            }
-        });
     }
 
     public void visit(CodeExprCall cc) {
+        
         // TODO: check func arg types against function type
         cc._fun.acceptVisitor(this);
         for(CodeExpr expr : cc._argl) {
             expr.acceptVisitor(this);
         }
         
-        // TODO function pointers?
-        // TODO yield type
+        // default for now, assume worst-case
+        cc._type = builder.INVALID_TYPE;
         
+        // could be a function name
+        if(!(cc._fun._type instanceof CTypeFunctionPointer)) {
+            env.diag.report(E_CALL_FUNC_PTR, cc);
+            return;
+        }
+        
+        // check that the argument types and numbers are acceptable
+        CTypeFunction funt = (CTypeFunction) (
+            ((CTypeFunctionPointer) cc._fun._type)._pointeeType
+        );
+        
+        // too few args
+        if(cc._argl.size() < funt._argTypes.size()) {
+            env.diag.report(E_CALL_FUNC_MISSING_ARGS, cc);
+            return;
+        }
+        
+        // too many args
+        if(cc._argl.size() > funt._argTypes.size() && !funt._moreArgs) {
+            env.diag.report(E_CALL_FUNC_EXTRA_ARGS, cc);
+            return;
+        }
+        
+        // check those args that we have
+        for(int i = 0; i < funt._argTypes.size(); ++i) {
+            CType argt = funt._argTypes.get(i);
+            CodeExpr expr = cc._argl.get(i);
+            CType part = expr._type;
+            
+            if(!part.canBeAssignedTo(argt)) {
+                env.diag.report(E_CALL_BAD_ARG_TYPE, expr);
+                return;
+            }
+            
+            // add in a type cast :D
+            cc._argl.set(i, new CodeExprCast(part, expr));
+        }
+        
+        cc._type = funt._retType;
     }
 
     public void visit(CodeExprSubscript cc) {
-        // TODO check type of index
         cc._idx.acceptVisitor(this);
-        
-        // TODO check type of expression
         cc._arr.acceptVisitor(this);
 
-        // TODO yield type
+        if(!(cc._arr._type instanceof CTypePointing)) {
+            env.diag.report(E_SUBSCRIPT_POINTER, cc);
+            cc._type = builder.INVALID_TYPE;
+        } else if(!(cc._idx._type instanceof CTypeIntegral)) {
+            env.diag.report(E_SUBSCRIPT_INTEGRAL, cc);
+            cc._type = builder.INVALID_TYPE;
+        } else {
+            cc._type = ((CTypePointing) cc._arr._type)._pointeeType;
+        }
+    }
+    
+    /**
+     * Go check for a field in a struct/union.
+     * @param expr
+     * @param field_name
+     * @param is_pointer
+     * @return
+     */
+    private CType checkField(CodeExpr expr, String field_name, boolean is_pointer) {
+        CType tt            = expr._type;
+        CTypeCompound ct    = null;
+        
+        if(is_pointer) {
+            if(!(expr._type instanceof CTypePointing)) {
+                env.diag.report(E_EXPR_NOT_COMPOUND_PT, expr);
+                return builder.INVALID_TYPE;
+            }
+        
+            tt = ((CTypePointing) expr._type)._pointeeType;
+        }
+        
+        // make sure we're looking at a compound type
+        if(!(tt instanceof CTypeCompound)) {
+            env.diag.report(
+                is_pointer ? E_EXPR_NOT_COMPOUND_PT : E_EXPR_NOT_COMPOUND_T, 
+                expr
+            );
+            return builder.INVALID_TYPE;
+        }
+        
+        // go explore the field
+        ct = (CTypeCompound) tt;
+        for(CTypeField field : ct._fields) {
+            if(0 == field._id._s.compareTo(field_name)) {
+                return field._type;
+            }
+        }
+        
+        return builder.INVALID_TYPE;
     }
 
     public void visit(CodeExprField cc) {
-        // TODO check that the expr is a struct/union
         cc._ob.acceptVisitor(this);
-        
-        // TODO check that the struct/union has the field
-        // TODO yield type
+        cc._type = checkField(cc._ob, cc._id._s, false);
     }
 
     public void visit(CodeExprPointsTo cc) {
-        // TODO check that the expr is a struct/union pointer
         cc._ptr.acceptVisitor(this);
-        
-        // TODO check that the struct/union has the field
-        // TODO yield type
+        cc._type = checkField(cc._ptr, cc._id._s, true);
     }
 }

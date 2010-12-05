@@ -16,14 +16,14 @@ package com.smwatt.comp;
 //-----------------------------------------------------------------------------
 
 action code {:
-	private CTypedefStack _tdstack = new CTypedefStack();
-	
-	private void initTypedefStack() {
-		((CScanner) parser.getScanner()).setTypedefOracle(_tdstack);
-	}  
-	private void pushTypedefLevel()                 { _tdstack.pushLevel(); }
-	private void popTypedefLevel()                  { _tdstack.popLevel();  }
-	private void seeDeclaration(C.CodeDeclaration d) { _tdstack.seeDeclaration(d); }
+    private CTypedefStack _tdstack = new CTypedefStack();
+    
+    private void initTypedefStack() {
+        ((CScanner) parser.getScanner()).setTypedefOracle(_tdstack);
+    }  
+    private void pushTypedefLevel()                 { _tdstack.pushLevel(); }
+    private void popTypedefLevel()                  { _tdstack.popLevel();  }
+    private void seeDeclaration(C.CodeDeclaration d) { _tdstack.seeDeclaration(d); }
 :};
 
 //-----------------------------------------------------------------------------
@@ -178,7 +178,7 @@ non terminal CTokenOperator          unary_operator;
 non terminal C.CodeExpr               postfix_expression;
 non terminal C.CodeExpr               primary_expression;
 non terminal C.CodeConstant           constant;
-non terminal C.CodeId        		 identifier;
+non terminal C.CodeId                 identifier;
 
 //-----------------------------------------------------------------------------
 // These non-terminals from the original grammar
@@ -190,7 +190,7 @@ non terminal ListOf.CCodeExpr         argument_expression_list;
 non terminal ListOf.CCodeSpecifier    declaration_specifier_list;
 non terminal ListOf.CCodeDeclaration  declaration_list;
 non terminal ListOf.CCodeEnumerator   enumerator_list;
-non terminal ListOf.CCodeId   		 identifier_list;
+non terminal ListOf.CCodeId            identifier_list;
 non terminal ListOf.CCodeDeclarator   init_declarator_list;
 non terminal ListOf.CCodeInitializer  initializer_list;
 non terminal ListOf.CCodeDeclaration  parameter_declaration_list;
@@ -210,8 +210,8 @@ non terminal C.CodeExpr               constant_expression_opt;
 non terminal ListOf.CCodeDeclaration  declaration_list_opt;
 non terminal C.CodeDeclarator         declarator_opt;
 non terminal C.CodeExpr               expression_opt;
-non terminal C.CodeId         		 identifier_opt;
-non terminal ListOf.CCodeId   		 identifier_list_opt;
+non terminal C.CodeId                  identifier_opt;
+non terminal ListOf.CCodeId            identifier_list_opt;
 non terminal ListOf.CCodeDeclarator   init_declarator_list_opt;
 non terminal ListOf.CCodeDeclaration  parameter_type_list_opt;
 non terminal ListOf.CCodeStat         statement_list_opt;
@@ -233,572 +233,577 @@ start with translation_unit;
 
 //----- Added external_declaration_list to K+R
 translation_unit ::=
-    	{: initTypedefStack(); pushTypedefLevel(); :}
-	  external_declaration_list:a
-		{: popTypedefLevel(); 
-		   RESULT = new C.CodeUnit(a); :}
-	;
+        {: initTypedefStack(); pushTypedefLevel(); :}
+      external_declaration_list:a
+        {: popTypedefLevel(); 
+           RESULT = new C.CodeUnit(a); :}
+    ;
 
 external_declaration ::=
-	  function_definition:a
-	  	{: RESULT = a; :}
-	| declaration:a
-		{: RESULT = a; :}
-	;
+      function_definition:a
+          {: RESULT = a; :}
+    | declaration:a
+        {: RESULT = a; :}
+    ;
 
 function_definition ::=
-	//----- Two rules instead of _opt to avoid S/R conflict.
-	   declarator:b declaration_list_opt:c compound_statement:d
-		{: RESULT = new C.CodeFunction(new ListOf.CCodeSpecifier(), 
-		                              b, c, d); :}
-	| declaration_specifier_list:a
-	  declarator:b declaration_list_opt:c compound_statement:d
-		{: RESULT = new C.CodeFunction(a, b, c, d); :}
-	;
+    //----- Two rules instead of _opt to avoid S/R conflict.
+       declarator:b declaration_list_opt:c compound_statement:d
+        {: RESULT = new C.CodeFunction(new ListOf.CCodeSpecifier(), 
+                                      b, c, d); :}
+    | declaration_specifier_list:a
+      declarator:b declaration_list_opt:c compound_statement:d
+        {: RESULT = new C.CodeFunction(a, b, c, d); :}
+    ;
 
 declaration ::=
-	  declaration_specifier_list:a init_declarator_list_opt:b SEMI
-		{: RESULT = new C.CodeDeclaration(a, b); 
-		   seeDeclaration(RESULT); :}
-	;
+      declaration_specifier_list:a init_declarator_list_opt:b SEMI
+        {: RESULT = new C.CodeDeclaration(a, b); 
+           seeDeclaration(RESULT); :}
+    ;
 
 //----- Modified from K+R.
 declaration_specifier ::=
-	  storage_class_specifier:a
-		{: RESULT = a; :}
-	| type_specifier:a
-		{: RESULT = a; :}
-	| type_qualifier:a
-		{: RESULT = a; :}
-	;
+      storage_class_specifier:a
+        {: RESULT = a; :}
+    | type_specifier:a
+        {: RESULT = a; :}
+    | type_qualifier:a
+        {: RESULT = a; :}
+    ;
 
 storage_class_specifier ::=
-	  AUTO:k
-		{: RESULT = new C.CodeSpecifierStorage(k); :}
-	| REGISTER:k
-		{: RESULT = new C.CodeSpecifierStorage(k); :}
-	| STATIC:k
-		{: RESULT = new C.CodeSpecifierStorage(k); :}
-	| EXTERN:k
-		{: RESULT = new C.CodeSpecifierStorage(k); :}
-	| TYPEDEF:k
-		{: RESULT = new C.CodeSpecifierStorage(k); :}
-	;
+      AUTO:k
+        {: RESULT = new C.CodeSpecifierStorage(k); :}
+    | REGISTER:k
+        {: RESULT = new C.CodeSpecifierStorage(k); :}
+    | STATIC:k
+        {: RESULT = new C.CodeSpecifierStorage(k); :}
+    | EXTERN:k
+        {: RESULT = new C.CodeSpecifierStorage(k); :}
+    | TYPEDEF:k
+        {: RESULT = new C.CodeSpecifierStorage(k); :}
+    ;
 
 //----- Added to K+R grammar to make specifier-qualifier-list more regular.
 specifier_qualifier ::=
-	  type_specifier:a
-		{: RESULT = a; :}
-	| type_qualifier:a
-		{: RESULT = a; :}
-	;
+      type_specifier:a
+        {: RESULT = a; :}
+    | type_qualifier:a
+        {: RESULT = a; :}
+    ;
 type_specifier ::=
-	  VOID:k
-		{: RESULT = new C.CodeSpecifierType(k); :}
-	| CHAR:k
-		{: RESULT = new C.CodeSpecifierType(k); :}
-	| SHORT:k
-		{: RESULT = new C.CodeSpecifierType(k); :}
-	| INT:k
-		{: RESULT = new C.CodeSpecifierType(k); :}
-	| LONG:k
-		{: RESULT = new C.CodeSpecifierType(k); :}
-	| FLOAT:k
-		{: RESULT = new C.CodeSpecifierType(k); :}
-	| DOUBLE:k
-		{: RESULT = new C.CodeSpecifierType(k); :}
-	| SIGNED:k
-		{: RESULT = new C.CodeSpecifierType(k); :}
-	| UNSIGNED:k
-		{: RESULT = new C.CodeSpecifierType(k); :}
-	| struct_or_union_specifier:a
-		{: RESULT = a; :}
-	| enum_specifier:a
-		{: RESULT = a; :}
-	| typedef_name:a
-		{: RESULT = a; :}
-	;
+      VOID:k
+        {: RESULT = new C.CodeSpecifierType(k); :}
+    | CHAR:k
+        {: RESULT = new C.CodeSpecifierType(k); :}
+    | SHORT:k
+        {: RESULT = new C.CodeSpecifierType(k); :}
+    | INT:k
+        {: RESULT = new C.CodeSpecifierType(k); :}
+    | LONG:k
+        {: RESULT = new C.CodeSpecifierType(k); :}
+    | FLOAT:k
+        {: RESULT = new C.CodeSpecifierType(k); :}
+    | DOUBLE:k
+        {: RESULT = new C.CodeSpecifierType(k); :}
+    | SIGNED:k
+        {: RESULT = new C.CodeSpecifierType(k); :}
+    | UNSIGNED:k
+        {: RESULT = new C.CodeSpecifierType(k); :}
+    | struct_or_union_specifier:a
+        {: RESULT = a; :}
+    | enum_specifier:a
+        {: RESULT = a; :}
+    | typedef_name:a
+        {: RESULT = a; :}
+    ;
 
 type_qualifier ::=
-	  CONST:k
-		{: RESULT = new C.CodeSpecifierQualifier(k); :}
-	| VOLATILE:k
-		{: RESULT = new C.CodeSpecifierQualifier(k); :}
-	;
+      CONST:k
+        {: RESULT = new C.CodeSpecifierQualifier(k); :}
+    | VOLATILE:k
+        {: RESULT = new C.CodeSpecifierQualifier(k); :}
+    ;
 
 //----- Modified from K+R to separate struct and union cases.
 struct_or_union_specifier ::=
-	  STRUCT:k identifier_opt:a  O_BRACE struct_declaration_list:b C_BRACE
-		{: RESULT = new C.CodeSpecifierStruct(a, b); 
-		   RESULT.copyPosition(k); :}
-	| STRUCT:k identifier:a
-		{: RESULT = new C.CodeSpecifierStruct(a, null); 
-		   RESULT.copyPosition(k); :}
-	| UNION:k identifier_opt:a  O_BRACE struct_declaration_list:b C_BRACE
-		{: RESULT = new C.CodeSpecifierUnion(a, b); 
-		   RESULT.copyPosition(k); :}
-	| UNION:k identifier:a
-		{: RESULT = new C.CodeSpecifierUnion(a, null); 
-		   RESULT.copyPosition(k); :}
-	;
+      STRUCT:k identifier_opt:a  O_BRACE struct_declaration_list:b C_BRACE
+        {: RESULT = new C.CodeSpecifierStruct(a, b); 
+           RESULT.copyPosition(k); :}
+    | STRUCT:k identifier:a
+        {: RESULT = new C.CodeSpecifierStruct(a, null); 
+           RESULT.copyPosition(k); :}
+    | UNION:k identifier_opt:a  O_BRACE struct_declaration_list:b C_BRACE
+        {: RESULT = new C.CodeSpecifierUnion(a, b); 
+           RESULT.copyPosition(k); :}
+    | UNION:k identifier:a
+        {: RESULT = new C.CodeSpecifierUnion(a, null); 
+           RESULT.copyPosition(k); :}
+    ;
 
 init_declarator ::=
-	  declarator:a
-		{: RESULT = a; :}
-	| declarator:a ASSIGN:k initializer:b
-		{: RESULT = new C.CodeDeclaratorInit(a, b);
-		   RESULT.copyPosition(k); :}
-	;
+      declarator:a
+        {: RESULT = a; :}
+    | declarator:a ASSIGN:k initializer:b
+        {: RESULT = new C.CodeDeclaratorInit(a, b);
+           RESULT.copyPosition(k); :}
+    ;
 
 struct_declaration ::=
-	  specifier_qualifier_list:a struct_declarator_list:b SEMI
-		{: RESULT = new C.CodeDeclaration(a, b); :}
-	;
+      specifier_qualifier_list:a struct_declarator_list:b SEMI
+        {: RESULT = new C.CodeDeclaration(a, b); :}
+    ;
 
 struct_declarator ::=
-	  declarator:a
-		{: RESULT = a; :}
-	| declarator_opt:a COLON:k constant_expression:b
-		{: RESULT = new C.CodeDeclaratorWidth(a, b);
-		   RESULT.copyPosition(k); :}
-	;
+      declarator:a
+        {: RESULT = a; :}
+    | declarator_opt:a COLON:k constant_expression:b
+        {: RESULT = new C.CodeDeclaratorWidth(a, b);
+           RESULT.copyPosition(k); :}
+    ;
 
 enum_specifier ::=
-	  ENUM:k identifier_opt:a O_BRACE enumerator_list:b C_BRACE
-		{: RESULT = new C.CodeSpecifierEnum(a, b); 
-		   RESULT.copyPosition(k); :}
-	| ENUM:k identifier:a
-		{: RESULT = new C.CodeSpecifierEnum(a, null); 
-		   RESULT.copyPosition(k); :}
-	;
+      ENUM:k identifier_opt:a O_BRACE enumerator_list:b C_BRACE
+        {: RESULT = new C.CodeSpecifierEnum(a, b); 
+           RESULT.copyPosition(k); :}
+    | ENUM:k identifier:a
+        {: RESULT = new C.CodeSpecifierEnum(a, null); 
+           RESULT.copyPosition(k); :}
+    ;
 
 enumerator ::=
-	  identifier:a
-		{: RESULT = new C.CodeEnumerator(a); :}
-	| identifier:a ASSIGN constant_expression:b
-		{: RESULT = new C.CodeEnumerator(a, b); :}
-	;
+      identifier:a
+        {: RESULT = new C.CodeEnumerator(a); :}
+    | identifier:a ASSIGN constant_expression:b
+        {: RESULT = new C.CodeEnumerator(a, b); :}
+    ;
 
 //----- Modified from K+R.
 declarator ::=
-	  direct_declarator:a
-		{: RESULT = a; :}
-	| pointer:a direct_declarator:b
-		{: RESULT = new C.CodeDeclaratorPointer(a, b); :}
-	;
+      direct_declarator:a
+        {: RESULT = a; :}
+    | pointer:a direct_declarator:b
+        {: RESULT = new C.CodeDeclaratorPointer(a, b); :}
+    ;
 
 direct_declarator ::=
-	  identifier:a
-		{: RESULT = new C.CodeDeclaratorId(a);  :}
-	| O_PAREN declarator:a C_PAREN
-		{: RESULT = a; :}
-	| direct_declarator:a O_BRACK constant_expression_opt:b C_BRACK
-		{: RESULT = new C.CodeDeclaratorArray(a,b); :}
-	| direct_declarator:a O_PAREN parameter_type_list:b     C_PAREN
-		{: RESULT = new C.CodeDeclaratorFunction(a,b); :}
-	| direct_declarator:a O_PAREN identifier_list_opt:b     C_PAREN
-		{: RESULT = new C.CodeDeclaratorFunction(a,b); :}
-	;
+      identifier:a
+        {: RESULT = new C.CodeDeclaratorId(a);  :}
+    | O_PAREN declarator:a C_PAREN
+        {: if(a instanceof C.CodeDeclaratorParen) {
+               RESULT = a;
+           } else {
+               RESULT = new C.CodeDeclaratorParen(a);
+           }
+        :}
+    | direct_declarator:a O_BRACK constant_expression_opt:b C_BRACK
+        {: RESULT = new C.CodeDeclaratorArray(a,b); :}
+    | direct_declarator:a O_PAREN parameter_type_list:b     C_PAREN
+        {: RESULT = new C.CodeDeclaratorFunction(a,b); :}
+    | direct_declarator:a O_PAREN identifier_list_opt:b     C_PAREN
+        {: RESULT = new C.CodeDeclaratorFunction(a,b); :}
+    ;
 
 pointer ::=
-	  STAR:k type_qualifier_list_opt:a
-		{: RESULT = new C.CodePointerStar(a, null);
-		   RESULT.copyPosition(k); :}
-	| STAR:k type_qualifier_list_opt:a pointer:b
-		{: RESULT = new C.CodePointerStar(a, b);
-		   RESULT.copyPosition(k); :}
-	;
+      STAR:k type_qualifier_list_opt:a
+        {: RESULT = new C.CodePointerStar(a, null);
+           RESULT.copyPosition(k); :}
+    | STAR:k type_qualifier_list_opt:a pointer:b
+        {: RESULT = new C.CodePointerStar(a, b);
+           RESULT.copyPosition(k); :}
+    ;
 
 parameter_type_list ::=
-	  parameter_declaration_list:a
-		{: RESULT = a; :}
-	| parameter_declaration_list:l COMMA DOT_DOT_DOT:k
-		{: RESULT = l; l.add(new C.CodeDotDotDot(k)); :}
-	;
+      parameter_declaration_list:a
+        {: RESULT = a; :}
+    | parameter_declaration_list:l COMMA DOT_DOT_DOT:k
+        {: RESULT = l; l.add(new C.CodeDotDotDot(k)); :}
+    ;
 
 parameter_declaration ::=
-	  declaration_specifier_list:a declarator:b
-		{: RESULT = new C.CodeDeclaration(a, b); :}
-	| declaration_specifier_list:a abstract_declarator_opt:b
-		{: RESULT = new C.CodeDeclaration(a, b); :}
-	;
+      declaration_specifier_list:a declarator:b
+        {: RESULT = new C.CodeDeclaration(a, b); :}
+    | declaration_specifier_list:a abstract_declarator_opt:b
+        {: RESULT = new C.CodeDeclaration(a, b); :}
+    ;
 
 initializer ::=
-	  assignment_expression:a
-		{: RESULT = new C.CodeInitializerValue(a); :}
-	| O_BRACE:k initializer_list:l C_BRACE
-		{: RESULT = new C.CodeInitializerList(l);
-		   RESULT.copyPosition(k); :}
-	| O_BRACE:k initializer_list:l COMMA C_BRACE
-		{: RESULT = new C.CodeInitializerList(l);
-		   RESULT.copyPosition(k); :}
-	;
+      assignment_expression:a
+        {: RESULT = new C.CodeInitializerValue(a); :}
+    | O_BRACE:k initializer_list:l C_BRACE
+        {: RESULT = new C.CodeInitializerList(l);
+           RESULT.copyPosition(k); :}
+    | O_BRACE:k initializer_list:l COMMA C_BRACE
+        {: RESULT = new C.CodeInitializerList(l);
+           RESULT.copyPosition(k); :}
+    ;
 
 type_name ::=
-	  specifier_qualifier_list:a abstract_declarator_opt:b
-		{: RESULT = new C.CodeTypeName(a,b); :}
-	;
+      specifier_qualifier_list:a abstract_declarator_opt:b
+        {: RESULT = new C.CodeTypeName(a,b); :}
+    ;
 
 //----- Modified from K+R.
 abstract_declarator ::=
-	  pointer:a
-		{: RESULT = new C.CodeDeclaratorPointer(a, null); :}
-	| direct_abstract_declarator:a
-		{: RESULT = a; :}
-	| pointer:a direct_abstract_declarator:b
-		{: RESULT = new C.CodeDeclaratorPointer(a, b); :}
-	;
+      pointer:a
+        {: RESULT = new C.CodeDeclaratorPointer(a, null); :}
+    | direct_abstract_declarator:a
+        {: RESULT = a; :}
+    | pointer:a direct_abstract_declarator:b
+        {: RESULT = new C.CodeDeclaratorPointer(a, b); :}
+    ;
 
 direct_abstract_declarator ::=
-	  O_PAREN abstract_declarator:a C_PAREN
-		{: RESULT = a; :}
+      O_PAREN abstract_declarator:a C_PAREN
+        {: RESULT = a; :}
 
-	//----- Two rules instead one _opt to avoid S/R conflict.
-	| direct_abstract_declarator:a
-	  O_BRACK constant_expression_opt:b C_BRACK
-		{: RESULT = new C.CodeDeclaratorArray(a,b); :}
-	| O_BRACK constant_expression_opt:b C_BRACK
-		{: RESULT = new C.CodeDeclaratorArray(null,b); :}
+    //----- Two rules instead one _opt to avoid S/R conflict.
+    | direct_abstract_declarator:a
+      O_BRACK constant_expression_opt:b C_BRACK
+        {: RESULT = new C.CodeDeclaratorArray(a,b); :}
+    | O_BRACK constant_expression_opt:b C_BRACK
+        {: RESULT = new C.CodeDeclaratorArray(null,b); :}
 
-	//----- Two rules instead of _opt to avoid S/R conflict.
-	| direct_abstract_declarator:a
-	  O_PAREN parameter_type_list_opt:b C_BRACE
-		{: RESULT = new C.CodeDeclaratorFunction(a,b); :}
-	| O_PAREN parameter_type_list_opt:b C_BRACE
-		{: RESULT = new C.CodeDeclaratorFunction(null,b); :}
-	;
+    //----- Two rules instead of _opt to avoid S/R conflict.
+    | direct_abstract_declarator:a
+      O_PAREN parameter_type_list_opt:b C_BRACE
+        {: RESULT = new C.CodeDeclaratorFunction(a,b); :}
+    | O_PAREN parameter_type_list_opt:b C_BRACE
+        {: RESULT = new C.CodeDeclaratorFunction(null,b); :}
+    ;
 
 //----- This rule is modified.  The RHS used to be "identifier".
 typedef_name ::=
-	  TYPEDEF_NAME:k
-		{: C.CodeId tempId = new C.CodeId(k.toString());
-		   tempId.copyPosition(k);
-		   RESULT = new C.CodeSpecifierTypedefName(tempId);
-		   RESULT.copyPosition(k); :}
-	;
+      TYPEDEF_NAME:k
+        {: C.CodeId tempId = new C.CodeId(k.toString());
+           tempId.copyPosition(k);
+           RESULT = new C.CodeSpecifierTypedefName(tempId);
+           RESULT.copyPosition(k); :}
+    ;
 
 statement ::=
-	  labeled_statement:a
-	  	{: RESULT = a; :}
-	| expression_statement:a
-		{: RESULT = a; :}
-	| compound_statement:a
-		{: RESULT = a; :}
-	| selection_statement:a
-		{: RESULT = a; :}
-	| iteration_statement:a
-		{: RESULT = a; :}
-	| jump_statement:a
-		{: RESULT = a; :}
-	;
+      labeled_statement:a
+          {: RESULT = a; :}
+    | expression_statement:a
+        {: RESULT = a; :}
+    | compound_statement:a
+        {: RESULT = a; :}
+    | selection_statement:a
+        {: RESULT = a; :}
+    | iteration_statement:a
+        {: RESULT = a; :}
+    | jump_statement:a
+        {: RESULT = a; :}
+    ;
 
 labeled_statement ::=
-	  identifier:a COLON statement:b
-	  	{: RESULT = new C.CodeStatLabeled(a, b); :}
-	| CASE:k constant_expression:a COLON statement:b
-		{: RESULT = new C.CodeStatCase(a, b); 
-		   RESULT.copyPosition(k); :}
-	| DEFAULT:k COLON statement:a
-		{: RESULT = new C.CodeStatDefault(a); 
-		   RESULT.copyPosition(k); :}
-	;
+      identifier:a COLON statement:b
+          {: RESULT = new C.CodeStatLabeled(a, b); :}
+    | CASE:k constant_expression:a COLON statement:b
+        {: RESULT = new C.CodeStatCase(a, b); 
+           RESULT.copyPosition(k); :}
+    | DEFAULT:k COLON statement:a
+        {: RESULT = new C.CodeStatDefault(a); 
+           RESULT.copyPosition(k); :}
+    ;
 
 expression_statement ::=
-	  expression_opt:a SEMI:s
-	  	{: RESULT = new C.CodeStatExpression(a); 
+      expression_opt:a SEMI:s
+          {: RESULT = new C.CodeStatExpression(a); 
            RESULT.copyPosition(s); :}
-	;
+    ;
 
 compound_statement ::=
-		{: pushTypedefLevel(); :}
-	  O_BRACE:k declaration_list_opt:a statement_list_opt:b C_BRACE
-	  	{: popTypedefLevel();
-	  	   RESULT = new C.CodeStatCompound(a,b);
-		   RESULT.copyPosition(k); :}
-	;
+        {: pushTypedefLevel(); :}
+      O_BRACE:k declaration_list_opt:a statement_list_opt:b C_BRACE
+          {: popTypedefLevel();
+             RESULT = new C.CodeStatCompound(a,b);
+           RESULT.copyPosition(k); :}
+    ;
 
 selection_statement ::=
-	  IF:k O_PAREN expression:a C_PAREN statement:b
-	  	{: RESULT = new C.CodeStatIf(a,b,null);
-		   RESULT.copyPosition(k); :}
-	| IF:k O_PAREN expression:a C_PAREN statement:b ELSE statement:c
-		{: RESULT = new C.CodeStatIf(a,b,c);   
-		   RESULT.copyPosition(k); :}
-	| SWITCH:k O_PAREN expression:a C_PAREN statement:b
-		{: RESULT = new C.CodeStatSwitch(a,b); 
-		   RESULT.copyPosition(k); :}
-	;
+      IF:k O_PAREN expression:a C_PAREN statement:b
+          {: RESULT = new C.CodeStatIf(a,b,null);
+           RESULT.copyPosition(k); :}
+    | IF:k O_PAREN expression:a C_PAREN statement:b ELSE statement:c
+        {: RESULT = new C.CodeStatIf(a,b,c);   
+           RESULT.copyPosition(k); :}
+    | SWITCH:k O_PAREN expression:a C_PAREN statement:b
+        {: RESULT = new C.CodeStatSwitch(a,b); 
+           RESULT.copyPosition(k); :}
+    ;
 
 iteration_statement ::=
-	  WHILE:k O_PAREN expression:a C_PAREN statement:b
-	  	{: RESULT = new C.CodeStatWhile(a,b);   
-		   RESULT.copyPosition(k); :}
-	| DO:k statement:a WHILE O_PAREN expression:b C_PAREN SEMI
-		{: RESULT = new C.CodeStatDo(b, a);      
-		   RESULT.copyPosition(k); :}
-	| FOR:k O_PAREN expression_opt:a SEMI
-	                expression_opt:b SEMI
-	                expression_opt:c C_PAREN statement:d
-		{: RESULT = new C.CodeStatFor(a,b,c,d); 
-		   RESULT.copyPosition(k); :}
-	;
+      WHILE:k O_PAREN expression:a C_PAREN statement:b
+          {: RESULT = new C.CodeStatWhile(a,b);   
+           RESULT.copyPosition(k); :}
+    | DO:k statement:a WHILE O_PAREN expression:b C_PAREN SEMI
+        {: RESULT = new C.CodeStatDo(b, a);      
+           RESULT.copyPosition(k); :}
+    | FOR:k O_PAREN expression_opt:a SEMI
+                    expression_opt:b SEMI
+                    expression_opt:c C_PAREN statement:d
+        {: RESULT = new C.CodeStatFor(a,b,c,d); 
+           RESULT.copyPosition(k); :}
+    ;
 
 jump_statement ::=
-	  GOTO:k identifier:i SEMI
-	  	{: RESULT = new C.CodeStatGoto(i); 
-		   RESULT.copyPosition(k); :}
-	| CONTINUE:k SEMI
-		{: RESULT = new C.CodeStatContinue(); 
-		   RESULT.copyPosition(k); :}
-	| BREAK:k SEMI
-		{: RESULT = new C.CodeStatBreak(); 
-		   RESULT.copyPosition(k); :}
-	| RETURN:k expression_opt:e SEMI
-		{: RESULT = new C.CodeStatReturn(e); 
-		   RESULT.copyPosition(k); :}
-	;
+      GOTO:k identifier:i SEMI
+          {: RESULT = new C.CodeStatGoto(i); 
+           RESULT.copyPosition(k); :}
+    | CONTINUE:k SEMI
+        {: RESULT = new C.CodeStatContinue(); 
+           RESULT.copyPosition(k); :}
+    | BREAK:k SEMI
+        {: RESULT = new C.CodeStatBreak(); 
+           RESULT.copyPosition(k); :}
+    | RETURN:k expression_opt:e SEMI
+        {: RESULT = new C.CodeStatReturn(e); 
+           RESULT.copyPosition(k); :}
+    ;
 
 //---- Modified from K+R
 expression ::=
-	  argument_expression:a
-		{: RESULT = a; :}	  
-	| expression:a COMMA:o argument_expression:b
-	    {: RESULT = new C.CodeExprInfix(o, a, b); :}
-	;
+      argument_expression:a
+        {: RESULT = a; :}      
+    | expression:a COMMA:o argument_expression:b
+        {: RESULT = new C.CodeExprInfix(o, a, b); :}
+    ;
 
 //----- Added to K+R
 argument_expression ::=
-	  assignment_expression:a
-	  	{: RESULT = a; :}
-	;
-	
+      assignment_expression:a
+          {: RESULT = a; :}
+    ;
+    
 assignment_expression ::=
-	  conditional_expression:a
-		{: RESULT = a; :}
-	| unary_expression:a assignment_operator:o assignment_expression:b
-		{: RESULT = new C.CodeExprAssignment(o, a, b); :}
-	;
+      conditional_expression:a
+        {: RESULT = a; :}
+    | unary_expression:a assignment_operator:o assignment_expression:b
+        {: RESULT = new C.CodeExprAssignment(o, a, b); :}
+    ;
 
 assignment_operator ::=
-	  ASSIGN:o
-		{: RESULT = o; :}
-	| STAR_ASSIGN:o
-		{: RESULT = o; :}
-	| SLASH_ASSIGN:o
-		{: RESULT = o; :}
-	| MOD_ASSIGN:o
-		{: RESULT = o; :}
-	| PLUS_ASSIGN:o
-		{: RESULT = o; :}
-	| MINUS_ASSIGN:o
-		{: RESULT = o; :}
-	| LSH_ASSIGN:o
-		{: RESULT = o; :}
-	| RSH_ASSIGN:o
-		{: RESULT = o; :}
-	| AMP_ASSIGN:o
-		{: RESULT = o; :}
-	| XOR_ASSIGN:o
-		{: RESULT = o; :}
-	| VBAR_ASSIGN:o
-		{: RESULT = o; :}
-	;
+      ASSIGN:o
+        {: RESULT = o; :}
+    | STAR_ASSIGN:o
+        {: RESULT = o; :}
+    | SLASH_ASSIGN:o
+        {: RESULT = o; :}
+    | MOD_ASSIGN:o
+        {: RESULT = o; :}
+    | PLUS_ASSIGN:o
+        {: RESULT = o; :}
+    | MINUS_ASSIGN:o
+        {: RESULT = o; :}
+    | LSH_ASSIGN:o
+        {: RESULT = o; :}
+    | RSH_ASSIGN:o
+        {: RESULT = o; :}
+    | AMP_ASSIGN:o
+        {: RESULT = o; :}
+    | XOR_ASSIGN:o
+        {: RESULT = o; :}
+    | VBAR_ASSIGN:o
+        {: RESULT = o; :}
+    ;
 
 conditional_expression ::=
-	  logical_OR_expression:c
-		{: RESULT = c; :}
-	| logical_OR_expression:c QMARK:k expression:t 
-	                          COLON   conditional_expression:e
-		{: RESULT = new C.CodeExprConditional(c, t, e); 
-		   RESULT.copyPosition(k); :}
-	;
+      logical_OR_expression:c
+        {: RESULT = c; :}
+    | logical_OR_expression:c QMARK:k expression:t 
+                              COLON   conditional_expression:e
+        {: RESULT = new C.CodeExprConditional(c, t, e); 
+           RESULT.copyPosition(k); :}
+    ;
 
 constant_expression ::=
-	  conditional_expression:c
-		{: RESULT = c; :}
-	;
+      conditional_expression:c
+        {: RESULT = c; :}
+    ;
 
 logical_OR_expression ::=
-	  logical_AND_expression:c
-		{: RESULT = c; :}
-	| logical_OR_expression:a VBAR_VBAR:o logical_AND_expression:b
-		{: RESULT = new C.CodeExprInfix(o, a, b); :}
-	;
+      logical_AND_expression:c
+        {: RESULT = c; :}
+    | logical_OR_expression:a VBAR_VBAR:o logical_AND_expression:b
+        {: RESULT = new C.CodeExprInfix(o, a, b); :}
+    ;
 
 logical_AND_expression ::=
-	  inclusive_OR_expression:c
-		{: RESULT = c; :}
-	| logical_AND_expression:a AMP_AMP:o inclusive_OR_expression:b
-		{: RESULT = new C.CodeExprInfix(o, a, b); :}
-	;
+      inclusive_OR_expression:c
+        {: RESULT = c; :}
+    | logical_AND_expression:a AMP_AMP:o inclusive_OR_expression:b
+        {: RESULT = new C.CodeExprInfix(o, a, b); :}
+    ;
 
 inclusive_OR_expression ::=
-	  exclusive_OR_expression:c
-		{: RESULT = c; :}
-	| inclusive_OR_expression:a VBAR:o exclusive_OR_expression:b
-		{: RESULT = new C.CodeExprInfix(o, a, b); :}
-	;
+      exclusive_OR_expression:c
+        {: RESULT = c; :}
+    | inclusive_OR_expression:a VBAR:o exclusive_OR_expression:b
+        {: RESULT = new C.CodeExprInfix(o, a, b); :}
+    ;
 
 exclusive_OR_expression ::=
-	  AND_expression:c
-		{: RESULT = c; :}
-	| exclusive_OR_expression:a XOR:o AND_expression:b
-		{: RESULT = new C.CodeExprInfix(o, a, b); :}
-	;
+      AND_expression:c
+        {: RESULT = c; :}
+    | exclusive_OR_expression:a XOR:o AND_expression:b
+        {: RESULT = new C.CodeExprInfix(o, a, b); :}
+    ;
 
 AND_expression ::=
-	  equality_expression:c
-		{: RESULT = c; :}
-	| AND_expression:a AMP:o equality_expression:b
-		{: RESULT = new C.CodeExprInfix(o, a, b); :}
-	;
+      equality_expression:c
+        {: RESULT = c; :}
+    | AND_expression:a AMP:o equality_expression:b
+        {: RESULT = new C.CodeExprInfix(o, a, b); :}
+    ;
 
 equality_expression ::=
-	  relational_expression:c
-		{: RESULT = c; :}
-	| equality_expression:a EQUALS:o     relational_expression:b
-		{: RESULT = new C.CodeExprInfix(o, a, b); :}
-	| equality_expression:a NOT_EQUALS:o relational_expression:b
-		{: RESULT = new C.CodeExprInfix(o, a, b); :}
-	;
+      relational_expression:c
+        {: RESULT = c; :}
+    | equality_expression:a EQUALS:o     relational_expression:b
+        {: RESULT = new C.CodeExprInfix(o, a, b); :}
+    | equality_expression:a NOT_EQUALS:o relational_expression:b
+        {: RESULT = new C.CodeExprInfix(o, a, b); :}
+    ;
 
 relational_expression ::=
-	  shift_expression:c
-		{: RESULT = c; :}
-	| relational_expression:a LT:o    shift_expression:b
-		{: RESULT = new C.CodeExprInfix(o, a, b); :}
-	| relational_expression:a GT:o    shift_expression:b
-		{: RESULT = new C.CodeExprInfix(o, a, b); :}
-	| relational_expression:a LT_EQ:o shift_expression:b
-		{: RESULT = new C.CodeExprInfix(o, a, b); :}
-	| relational_expression:a GT_EQ:o shift_expression:b
-		{: RESULT = new C.CodeExprInfix(o, a, b); :}
-	;
+      shift_expression:c
+        {: RESULT = c; :}
+    | relational_expression:a LT:o    shift_expression:b
+        {: RESULT = new C.CodeExprInfix(o, a, b); :}
+    | relational_expression:a GT:o    shift_expression:b
+        {: RESULT = new C.CodeExprInfix(o, a, b); :}
+    | relational_expression:a LT_EQ:o shift_expression:b
+        {: RESULT = new C.CodeExprInfix(o, a, b); :}
+    | relational_expression:a GT_EQ:o shift_expression:b
+        {: RESULT = new C.CodeExprInfix(o, a, b); :}
+    ;
 
 shift_expression ::=
-	  additive_expression:c
-		{: RESULT = c; :}
-	| shift_expression:a LSH:o additive_expression:b
-		{: RESULT = new C.CodeExprInfix(o, a, b); :}
-	| shift_expression:a RSH:o additive_expression:b
-		{: RESULT = new C.CodeExprInfix(o, a, b); :}
-	;
+      additive_expression:c
+        {: RESULT = c; :}
+    | shift_expression:a LSH:o additive_expression:b
+        {: RESULT = new C.CodeExprInfix(o, a, b); :}
+    | shift_expression:a RSH:o additive_expression:b
+        {: RESULT = new C.CodeExprInfix(o, a, b); :}
+    ;
 
 additive_expression ::=
-	  multiplicative_expression:c
-		{: RESULT = c; :}
-	| additive_expression:a PLUS:o  multiplicative_expression:b
-		{: RESULT = new C.CodeExprInfix(o, a, b); :}
-	| additive_expression:a MINUS:o multiplicative_expression:b
-		{: RESULT = new C.CodeExprInfix(o, a, b); :}
-	;
+      multiplicative_expression:c
+        {: RESULT = c; :}
+    | additive_expression:a PLUS:o  multiplicative_expression:b
+        {: RESULT = new C.CodeExprInfix(o, a, b); :}
+    | additive_expression:a MINUS:o multiplicative_expression:b
+        {: RESULT = new C.CodeExprInfix(o, a, b); :}
+    ;
 
 multiplicative_expression ::=
-	  cast_expression:c
-		{: RESULT = c; :}
-	| multiplicative_expression:a STAR:o  cast_expression:b
-		{: RESULT = new C.CodeExprInfix(o, a, b); :}
-	| multiplicative_expression:a SLASH:o cast_expression:b
-		{: RESULT = new C.CodeExprInfix(o, a, b); :}
-	| multiplicative_expression:a MOD:o   cast_expression:b
-		{: RESULT = new C.CodeExprInfix(o, a, b); :}
-	;
+      cast_expression:c
+        {: RESULT = c; :}
+    | multiplicative_expression:a STAR:o  cast_expression:b
+        {: RESULT = new C.CodeExprInfix(o, a, b); :}
+    | multiplicative_expression:a SLASH:o cast_expression:b
+        {: RESULT = new C.CodeExprInfix(o, a, b); :}
+    | multiplicative_expression:a MOD:o   cast_expression:b
+        {: RESULT = new C.CodeExprInfix(o, a, b); :}
+    ;
 
 cast_expression ::=
-	  unary_expression:c
-		{: RESULT = c; :}
-	| O_PAREN type_name:t C_PAREN cast_expression:e
-		{: RESULT = new C.CodeExprCast(t, e); :}
-	;
+      unary_expression:c
+        {: RESULT = c; :}
+    | O_PAREN type_name:t C_PAREN cast_expression:e
+        {: RESULT = new C.CodeExprCast(t, e); :}
+    ;
 
 unary_expression ::=
-	  postfix_expression:c
-		{: RESULT = c; :}
-	| PLUS_PLUS:o unary_expression:a
-		{: RESULT = new C.CodeExprPrefix(o, a); :}
-	| MINUS_MINUS:o unary_expression:a
-		{: RESULT = new C.CodeExprPrefix(o, a); :}
-	| unary_operator:o cast_expression:a
-		{: RESULT = new C.CodeExprPrefix(o, a); :}
-	| SIZEOF:k unary_expression:a
-		{: RESULT = new C.CodeExprSizeofValue(a);
-		   RESULT.copyPosition(k); :}
-	| SIZEOF:k O_PAREN type_name:a C_PAREN
-		{: RESULT = new C.CodeExprSizeofType(a); 
-		   RESULT.copyPosition(k); :}
-	;
+      postfix_expression:c
+        {: RESULT = c; :}
+    | PLUS_PLUS:o unary_expression:a
+        {: RESULT = new C.CodeExprPrefix(o, a); :}
+    | MINUS_MINUS:o unary_expression:a
+        {: RESULT = new C.CodeExprPrefix(o, a); :}
+    | unary_operator:o cast_expression:a
+        {: RESULT = new C.CodeExprPrefix(o, a); :}
+    | SIZEOF:k unary_expression:a
+        {: RESULT = new C.CodeExprSizeofValue(a);
+           RESULT.copyPosition(k); :}
+    | SIZEOF:k O_PAREN type_name:a C_PAREN
+        {: RESULT = new C.CodeExprSizeofType(a); 
+           RESULT.copyPosition(k); :}
+    ;
 
 unary_operator ::=
-	  AMP:o
-		{: RESULT = o; :}
-	| STAR:o
-		{: RESULT = o; :}
-	| PLUS:o
-		{: RESULT = o; :}
-	| MINUS:o
-		{: RESULT = o; :}
-	| TILDE:o
-		{: RESULT = o; :}
-	| NOT:o
-		{: RESULT = o; :}
-	;
+      AMP:o
+        {: RESULT = o; :}
+    | STAR:o
+        {: RESULT = o; :}
+    | PLUS:o
+        {: RESULT = o; :}
+    | MINUS:o
+        {: RESULT = o; :}
+    | TILDE:o
+        {: RESULT = o; :}
+    | NOT:o
+        {: RESULT = o; :}
+    ;
 
 postfix_expression ::=
-	  primary_expression:c
-	 	{: RESULT = c; :}
-	| postfix_expression:a O_BRACK:k expression:b C_BRACK
-		{: RESULT = new C.CodeExprSubscript(a,b); 
-		   RESULT.copyPosition(k); :}
-	| postfix_expression:a O_PAREN:k argument_expression_list_opt:b C_PAREN
-		{: RESULT = new C.CodeExprCall(a,b); 
-		   RESULT.copyPosition(k); :}
-	| postfix_expression:a DOT:k identifier:b
-		{: RESULT = new C.CodeExprField(a,b); 
-		   RESULT.copyPosition(k); :}
-	| postfix_expression:a POINTS_TO:k identifier:b
-		{: RESULT = new C.CodeExprPointsTo(a,b); 
-		   RESULT.copyPosition(k); :}
-	| postfix_expression:a PLUS_PLUS:o
-		{: RESULT = new C.CodeExprPostfix(o, a); :}
-	| postfix_expression:a MINUS_MINUS:o
-		{: RESULT = new C.CodeExprPostfix(o, a); :}
-	;
+      primary_expression:c
+         {: RESULT = c; :}
+    | postfix_expression:a O_BRACK:k expression:b C_BRACK
+        {: RESULT = new C.CodeExprSubscript(a,b); 
+           RESULT.copyPosition(k); :}
+    | postfix_expression:a O_PAREN:k argument_expression_list_opt:b C_PAREN
+        {: RESULT = new C.CodeExprCall(a,b); 
+           RESULT.copyPosition(k); :}
+    | postfix_expression:a DOT:k identifier:b
+        {: RESULT = new C.CodeExprField(a,b); 
+           RESULT.copyPosition(k); :}
+    | postfix_expression:a POINTS_TO:k identifier:b
+        {: RESULT = new C.CodeExprPointsTo(a,b); 
+           RESULT.copyPosition(k); :}
+    | postfix_expression:a PLUS_PLUS:o
+        {: RESULT = new C.CodeExprPostfix(o, a); :}
+    | postfix_expression:a MINUS_MINUS:o
+        {: RESULT = new C.CodeExprPostfix(o, a); :}
+    ;
 
 primary_expression ::=
-	  identifier:a
-	  	{: RESULT = new C.CodeExprId(a);
-	  	   RESULT.copyPosition(a); :}
-	| constant:a
-		{: RESULT = a; :}
-	| STRING:c
-		{: RESULT = new C.CodeString(c.toString());
-		   RESULT.copyPosition(c); :}
-	| O_PAREN:k expression:a C_PAREN
-		{: RESULT = new C.CodeExprParen(a); 
-		   RESULT.copyPosition(k); :}
-	;
+      identifier:a
+          {: RESULT = new C.CodeExprId(a);
+             RESULT.copyPosition(a); :}
+    | constant:a
+        {: RESULT = a; :}
+    | STRING:c
+        {: RESULT = new C.CodeString(c.toString());
+           RESULT.copyPosition(c); :}
+    | O_PAREN:k expression:a C_PAREN
+        {: RESULT = new C.CodeExprParen(a); 
+           RESULT.copyPosition(k); :}
+    ;
 
 constant ::=
-	  INTEGER_CONSTANT:c
-	  	{: RESULT = new C.CodeIntegerConstant(c.toString());
-	  	   RESULT.copyPosition(c); :}
-	| CHARACTER_CONSTANT:c
-		{: RESULT = new C.CodeCharacterConstant(c.toString());
-		   RESULT.copyPosition(c); :}
-	| FLOATING_CONSTANT:c
-		{: RESULT = new C.CodeFloatingConstant(c.toString());
+      INTEGER_CONSTANT:c
+          {: RESULT = new C.CodeIntegerConstant(c.toString());
+             RESULT.copyPosition(c); :}
+    | CHARACTER_CONSTANT:c
+        {: RESULT = new C.CodeCharacterConstant(c.toString());
            RESULT.copyPosition(c); :}
-	| ENUMERATION_CONSTANT:c
-		{: RESULT = new C.CodeEnumerationConstant(c.toString());
+    | FLOATING_CONSTANT:c
+        {: RESULT = new C.CodeFloatingConstant(c.toString());
            RESULT.copyPosition(c); :}
-	;
+    | ENUMERATION_CONSTANT:c
+        {: RESULT = new C.CodeEnumerationConstant(c.toString());
+           RESULT.copyPosition(c); :}
+    ;
 
 //----- Added to K+R.
 identifier ::=
-	  IDENTIFIER:k
-	  	{: RESULT = new C.CodeId(k.toString());
-	  	   RESULT.copyPosition(k); :}
-	;
+      IDENTIFIER:k
+          {: RESULT = new C.CodeId(k.toString());
+             RESULT.copyPosition(k); :}
+    ;
 
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -811,154 +816,154 @@ identifier ::=
 //-----------------------------------------------------------------------------
 
 external_declaration_list ::=
-	  external_declaration:e
-		{: RESULT = new ListOf.CCode(); RESULT.add(e); :}
-	| external_declaration_list:l external_declaration:e
-		{: RESULT = l; l.add(e); :}
-	;
+      external_declaration:e
+        {: RESULT = new ListOf.CCode(); RESULT.add(e); :}
+    | external_declaration_list:l external_declaration:e
+        {: RESULT = l; l.add(e); :}
+    ;
 //----- Modified from K+R.
 declaration_specifier_list ::=
-	  declaration_specifier:e
-		{: RESULT = new ListOf.CCodeSpecifier(); RESULT.add(e); :}
-	| declaration_specifier_list:l declaration_specifier:e
-		{: RESULT = l; l.add(e); :}
-	;
+      declaration_specifier:e
+        {: RESULT = new ListOf.CCodeSpecifier(); RESULT.add(e); :}
+    | declaration_specifier_list:l declaration_specifier:e
+        {: RESULT = l; l.add(e); :}
+    ;
 declaration_list ::=
-	  declaration:e
-		{: RESULT = new ListOf.CCodeDeclaration(); RESULT.add(e); :}
-	| declaration_list:l declaration:e
-		{: RESULT = l; l.add(e); :}
-	;
+      declaration:e
+        {: RESULT = new ListOf.CCodeDeclaration(); RESULT.add(e); :}
+    | declaration_list:l declaration:e
+        {: RESULT = l; l.add(e); :}
+    ;
 struct_declaration_list ::=
-	  struct_declaration:e
-		{: RESULT = new ListOf.CCodeDeclaration(); RESULT.add(e); :}
-	| struct_declaration_list:l struct_declaration:e
-		{: RESULT = l; l.add(e); :}
-	;
+      struct_declaration:e
+        {: RESULT = new ListOf.CCodeDeclaration(); RESULT.add(e); :}
+    | struct_declaration_list:l struct_declaration:e
+        {: RESULT = l; l.add(e); :}
+    ;
 init_declarator_list ::=
-	  init_declarator:e
-		{: RESULT = new ListOf.CCodeDeclarator(); RESULT.add(e); :}
-	| init_declarator_list:l COMMA init_declarator:e
-		{: RESULT = l; l.add(e); :}
-	;
+      init_declarator:e
+        {: RESULT = new ListOf.CCodeDeclarator(); RESULT.add(e); :}
+    | init_declarator_list:l COMMA init_declarator:e
+        {: RESULT = l; l.add(e); :}
+    ;
 //----- Modified from K+R.
 specifier_qualifier_list ::=
-	  specifier_qualifier:e
-		{: RESULT = new ListOf.CCodeSpecifier(); RESULT.add(e); :}
-	| specifier_qualifier_list:l specifier_qualifier:e
-		{: RESULT = l; l.add(e); :}
-	;
+      specifier_qualifier:e
+        {: RESULT = new ListOf.CCodeSpecifier(); RESULT.add(e); :}
+    | specifier_qualifier_list:l specifier_qualifier:e
+        {: RESULT = l; l.add(e); :}
+    ;
 struct_declarator_list ::=
-	  struct_declarator:e
-		{: RESULT = new ListOf.CCodeDeclarator(); RESULT.add(e); :}
-	| struct_declarator_list:l COMMA struct_declarator:e
-		{: RESULT = l; l.add(e); :}
-	;
+      struct_declarator:e
+        {: RESULT = new ListOf.CCodeDeclarator(); RESULT.add(e); :}
+    | struct_declarator_list:l COMMA struct_declarator:e
+        {: RESULT = l; l.add(e); :}
+    ;
 enumerator_list ::=
-	  enumerator:e
-		{: RESULT = new ListOf.CCodeEnumerator(); RESULT.add(e); :}
-	| enumerator_list:l COMMA enumerator:e
-		{: RESULT = l; l.add(e); :}
-	;
+      enumerator:e
+        {: RESULT = new ListOf.CCodeEnumerator(); RESULT.add(e); :}
+    | enumerator_list:l COMMA enumerator:e
+        {: RESULT = l; l.add(e); :}
+    ;
 type_qualifier_list ::=
-	  type_qualifier:e
-		{: RESULT = new ListOf.CCodeSpecifier(); RESULT.add(e); :}
-	| type_qualifier_list:l type_qualifier:e
-		{: RESULT = l; l.add(e); :}
-	;
+      type_qualifier:e
+        {: RESULT = new ListOf.CCodeSpecifier(); RESULT.add(e); :}
+    | type_qualifier_list:l type_qualifier:e
+        {: RESULT = l; l.add(e); :}
+    ;
 //----- K+R call this parameter_list.
 parameter_declaration_list ::=
-	  parameter_declaration:e
-		{: RESULT = new ListOf.CCodeDeclaration(); RESULT.add(e); :}
-	| parameter_declaration_list:l COMMA parameter_declaration:e
-		{: RESULT = l; l.add(e); :}
-	;
+      parameter_declaration:e
+        {: RESULT = new ListOf.CCodeDeclaration(); RESULT.add(e); :}
+    | parameter_declaration_list:l COMMA parameter_declaration:e
+        {: RESULT = l; l.add(e); :}
+    ;
 identifier_list ::=
-	  identifier:e
-		{: RESULT = new ListOf.CCodeId(); RESULT.add(e); :}
-	| identifier_list:l COMMA identifier:e
-		{: RESULT = l; l.add(e); :}
-	;
+      identifier:e
+        {: RESULT = new ListOf.CCodeId(); RESULT.add(e); :}
+    | identifier_list:l COMMA identifier:e
+        {: RESULT = l; l.add(e); :}
+    ;
 initializer_list ::=
-	  initializer:e
-		{: RESULT = new ListOf.CCodeInitializer(); RESULT.add(e); :}
-	| initializer_list:l COMMA initializer:e
-		{: RESULT = l; l.add(e); :}
-	;
+      initializer:e
+        {: RESULT = new ListOf.CCodeInitializer(); RESULT.add(e); :}
+    | initializer_list:l COMMA initializer:e
+        {: RESULT = l; l.add(e); :}
+    ;
 statement_list ::=
-	  statement:e
-		{: RESULT = new ListOf.CCodeStat(); RESULT.add(e); :}
-	| statement_list:l statement:e
-		{: RESULT = l; l.add(e); :}
-	;
+      statement:e
+        {: RESULT = new ListOf.CCodeStat(); RESULT.add(e); :}
+    | statement_list:l statement:e
+        {: RESULT = l; l.add(e); :}
+    ;
 argument_expression_list ::=
-	  argument_expression:e
-		{: RESULT = new ListOf.CCodeExpr(); RESULT.add(e); :}
-	| argument_expression_list:l COMMA argument_expression:e
-		{: RESULT = l; l.add(e); :}
-	;
+      argument_expression:e
+        {: RESULT = new ListOf.CCodeExpr(); RESULT.add(e); :}
+    | argument_expression_list:l COMMA argument_expression:e
+        {: RESULT = l; l.add(e); :}
+    ;
 
 //-----------------------------------------------------------------------------
 // Optional parts
 //-----------------------------------------------------------------------------
 
 abstract_declarator_opt ::=
-		{: RESULT = null; :}
-	| abstract_declarator:c
-		{: RESULT = c; :}
-	;
+        {: RESULT = null; :}
+    | abstract_declarator:c
+        {: RESULT = c; :}
+    ;
 argument_expression_list_opt ::=
-		{: RESULT = new ListOf.CCodeExpr(); :}
-	| argument_expression_list:l
-		{: RESULT = l; :}
-	;
+        {: RESULT = new ListOf.CCodeExpr(); :}
+    | argument_expression_list:l
+        {: RESULT = l; :}
+    ;
 constant_expression_opt ::=
-		{: RESULT = null; :}
-	| constant_expression:c
-		{: RESULT = c; :}
-	;
+        {: RESULT = null; :}
+    | constant_expression:c
+        {: RESULT = c; :}
+    ;
 declaration_list_opt ::=
-		{: RESULT = new ListOf.CCodeDeclaration(); :}
-	| declaration_list:l
-		{: RESULT = l; :}
-	;
+        {: RESULT = new ListOf.CCodeDeclaration(); :}
+    | declaration_list:l
+        {: RESULT = l; :}
+    ;
 declarator_opt ::=
-		{: RESULT = null; :}
-	| declarator:c
-		{: RESULT = c; :}
-	;
+        {: RESULT = null; :}
+    | declarator:c
+        {: RESULT = c; :}
+    ;
 expression_opt ::=
-		{: RESULT = null; :}
-	| expression:c
-		{: RESULT = c; :}
-	;
+        {: RESULT = null; :}
+    | expression:c
+        {: RESULT = c; :}
+    ;
 identifier_opt ::=
-		{: RESULT = null; :}
-	| identifier:c
-		{: RESULT = c; :}
-	;
+        {: RESULT = null; :}
+    | identifier:c
+        {: RESULT = c; :}
+    ;
 identifier_list_opt ::=
-		{: RESULT = new ListOf.CCodeId(); :}
-	| identifier_list:l
-		{: RESULT = l; :}
-	;
+        {: RESULT = new ListOf.CCodeId(); :}
+    | identifier_list:l
+        {: RESULT = l; :}
+    ;
 init_declarator_list_opt ::=
-		{: RESULT = new ListOf.CCodeDeclarator(); :}
-	| init_declarator_list:l
-		{: RESULT = l; :}
-	;
+        {: RESULT = new ListOf.CCodeDeclarator(); :}
+    | init_declarator_list:l
+        {: RESULT = l; :}
+    ;
 parameter_type_list_opt ::=
-		{: RESULT = new ListOf.CCodeDeclaration(); :}
-	| parameter_type_list:l
-		{: RESULT = l; :}
-	;
+        {: RESULT = new ListOf.CCodeDeclaration(); :}
+    | parameter_type_list:l
+        {: RESULT = l; :}
+    ;
 statement_list_opt ::=
-		{: RESULT = new ListOf.CCodeStat(); :}
-	| statement_list:l
-		{: RESULT = l; :}
-	;
+        {: RESULT = new ListOf.CCodeStat(); :}
+    | statement_list:l
+        {: RESULT = l; :}
+    ;
 type_qualifier_list_opt ::=
-		{: RESULT = new ListOf.CCodeSpecifier(); :}
-	| type_qualifier_list:l
-		{: RESULT = l; :}
-	;
+        {: RESULT = new ListOf.CCodeSpecifier(); :}
+    | type_qualifier_list:l
+        {: RESULT = l; :}
+    ;

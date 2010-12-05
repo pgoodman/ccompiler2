@@ -24,11 +24,10 @@ import static com.smwatt.comp.CType.*;
 public class CTypeBuilder {
     
     private Env env;
-    private CType INVALID_TYPE;
+    public final CType INVALID_TYPE = new CTypeInvalid();
     
     public CTypeBuilder(Env senv) { 
         env = senv;
-        INVALID_TYPE = new CTypeInvalid();
     }
     
     /**
@@ -114,7 +113,41 @@ public class CTypeBuilder {
             // E.g. int (**f)(char,...) => base=int, dtor=(**f)(char,...)
             C.CodeDeclaratorFunction fdtor = (C.CodeDeclaratorFunction) dtor;
             
-            CType retType = formTypeFromDeclarator(base, fdtor._optFn);
+            CTypeFunction func_type = new CTypeFunction();
+            CType yield_type = func_type;            
+            CType retType = base;
+            
+            if(null != fdtor._optFn) {
+                if(fdtor._optFn instanceof C.CodeDeclaratorParen) {
+                    
+                    CType internal = formTypeFromDeclarator(
+                        new CTypeVoid(), fdtor._optFn
+                    );
+                    
+                    C.CodeDeclaratorParen dd = (C.CodeDeclaratorParen) fdtor._optFn;
+                    
+                    if(dd._decl instanceof C.CodeDeclaratorWidth) {
+                        env.diag.report(E_FIELD_WIDTH_INT_ONLY, dd);
+                        return INVALID_TYPE;
+                    
+                    } else if(dd._decl instanceof C.CodeDeclaratorId) {
+                        retType = formTypeFromDeclarator(base, fdtor._optFn);
+                        
+                    } else {
+                        yield_type = formTypeFromDeclarator(
+                            func_type, 
+                            fdtor._optFn
+                        );
+                    }
+                    
+                } else if(fdtor._optFn instanceof C.CodeDeclaratorWidth) {
+                    env.diag.report(E_FIELD_WIDTH_INT_ONLY, fdtor._optFn);
+                    return INVALID_TYPE;
+                    
+                } else {
+                    retType = formTypeFromDeclarator(base, fdtor._optFn);
+                }
+            }
             
             // functions aren't allowed to return arrays
             if(null != retType && retType instanceof CTypeArray) {
@@ -132,43 +165,47 @@ public class CTypeBuilder {
             boolean hadId        = false;
             
             for (C.Code cc: fdtor._argl) {
+
                 if (hadDotDotDot) {
-                    // parse error :D
                     env.diag.report(
                         B_BUG, cc, "Multiple '...'s in function declarator list"
                     );
                     return INVALID_TYPE;
                 }
+                
                 if (cc instanceof C.CodeId) {
                     // TODO: Handle old style function declarations.
                     // Should have a different entry point with declaration list.
                     // handled by ExprTypeVisitor :D
                     hadId        = true;
                     hadDotDotDot = true; // Pretend.
-                }
-                else if (cc instanceof C.CodeDotDotDot) {
+                
+                } else if (cc instanceof C.CodeDotDotDot) {
                     hadDotDotDot = true;
-                }
-                else if (cc instanceof C.CodeDeclaration) {                    
+                
+                } else if (cc instanceof C.CodeDeclaration) {                    
                     argTypes.add(formTypeFromDeclaration((C.CodeDeclaration) cc));
                     
                     // handle f(void) by clearing it out
                     if(1 == argTypes.size() && argTypes.get(0) instanceof CTypeVoid) {
                         argTypes.clear();
                     }
-                }
-                else {
+                
+                } else {
                     env.diag.report(
                         B_BUG, cc, "Invalid code in function declarator list"
                     );
                     return INVALID_TYPE;
                 }
             }
+            
             if (hadId) {
                 argTypes = null;
             }
             
-            return new CTypeFunction(retType, argTypes, hadDotDotDot);
+            func_type.init(retType, argTypes, hadDotDotDot);
+            
+            return yield_type;
         
         // array declarator
         } else if (dtor instanceof C.CodeDeclaratorArray) {
@@ -189,6 +226,7 @@ public class CTypeBuilder {
                     public boolean apply(Env env, Code code) {
                         C.CodeDeclaratorArray arr = (C.CodeDeclaratorArray) node;
                         Integer obj_result = (Integer) env.interpret(arr._optIndex);
+
                         int result = (obj_result).intValue();
                         
                         if(result <= 0) {
@@ -232,7 +270,7 @@ public class CTypeBuilder {
             C.CodePointerStar star = pdtor._star;
             
             while (star != null) {
-                base = new CTypePointer(base);
+                base = CTypePointer.optNew(base);
                 
                 int constCount = 0;
                 int volatileCount = 0;
@@ -278,23 +316,68 @@ public class CTypeBuilder {
                 star = star._optStar;
             }
             return formTypeFromDeclarator(base, pdtor._optPointee);
-        }
-        else if (dtor instanceof C.CodeDeclaratorWidth){
+        
+        } else if (dtor instanceof C.CodeDeclaratorWidth){
             if (wantReturnTypeOnly) {
                 // TODO error handling
                 System.out.println("Case 5");
                 return INVALID_TYPE;
             }
+                        
+            return handleFieldWidth(base, (C.CodeDeclaratorWidth) dtor);
+        
+        } else if(dtor instanceof C.CodeDeclaratorParen) {
             
-            // ignore widths
-            C.CodeDeclaratorWidth width = (C.CodeDeclaratorWidth) dtor;
-            return this.formTypeFromDeclarator(base, width._dtor);
-        }
-        else {
+            return this.formTypeFromDeclarator(
+                base, ((C.CodeDeclaratorParen) dtor)._decl
+            );
+        
+        } else {
             // TODO: type inference error.
             System.out.println("Case 7");
             return INVALID_TYPE;
         }
+    }
+    
+    private CType handleFieldWidth(CType base, C.CodeDeclaratorWidth width) {
+        
+        CType existing = width.getOptId()._type;
+        
+        if(null != existing) {
+            return existing;
+        }
+        
+        base = this.formTypeFromDeclarator(base, width._dtor);
+        
+        // check that the type with the width declarator is integral
+        if(!(base instanceof CTypeIntegral)) {
+            env.diag.report(E_FIELD_WIDTH_INT_ONLY, width._dtor);
+            return INVALID_TYPE;
+        }
+        
+        // even though we aren't actually using widths, we need to check
+        // that they are positive, non-zero integers.
+        env.addPhase(new ParseTreeNodePhase(width) {
+
+            public boolean apply(Env env, Code code) {
+                C.CodeDeclaratorWidth w = (C.CodeDeclaratorWidth) node;
+                int width = ((Integer) env.interpret(w._width)).intValue(); 
+                
+                if(width <= 0) {
+                    env.diag.report(E_FIELD_WIDTH_POS, w);
+                    
+                } else if(width >= (8 * w.getOptId()._type.sizeOf(env))) {
+                    env.diag.report(E_FIELD_WIDTH_TOO_WIDE, w);
+                }
+                
+                // always keep going because this is a minor error, but
+                // big enough to stop a major phase
+                return true;
+            }
+            
+        });
+        
+        return base;
     }
     
     public CType formTypeFromSpecifiers(List<C.CodeSpecifier> specifiers) {
@@ -411,21 +494,24 @@ public class CTypeBuilder {
                         if (d instanceof C.CodeDeclaration) {
                             fillFields(lfield, (C.CodeDeclaration) d, true, base);
                         } else {
-                            env.diag.report(B_BUG, d, "Invalid code in struct body");
-                            return new CTypeInvalid();
+                            env.diag.report(
+                                B_BUG, d, "Invalid code in struct body"
+                            );
+                            return INVALID_TYPE;
                         }
                     }
                     
                     
-                }
-                else if (sspec._optId != null) {
+                } else if (sspec._optId != null) {
                     //base = new CTypeNamedStruct(sspec._optId);
                     base = sspec._scope.get(
                         sspec._optId._s, Type.STRUCT_NAME
                     ).code._type;
-                }
-                else {
-                    env.diag.report(B_BUG, spec, "Struct missing name and body");
+                
+                } else {
+                    env.diag.report(
+                        B_BUG, spec, "Struct missing name and body"
+                    );
                     return new CTypeInvalid();
                 }
             }
@@ -587,6 +673,7 @@ public class CTypeBuilder {
                 }
             }
         }
+        
         if (base == null) {
             base = new CTypeInt();
         }
@@ -599,6 +686,7 @@ public class CTypeBuilder {
             base._isConst    = constCount > 0;
             base._isVolatile = volatileCount > 0;
         }
+        
         if (signedCount + unsignedCount > 0) {
             if (signedCount + unsignedCount > 1) {
                 env.diag.report(E_MULTI_SIGNED, specifiers.get(0));
@@ -612,6 +700,7 @@ public class CTypeBuilder {
                 has_error = true;
             }
         }
+        
         if (shortCount + longCount > 0) {
             if (shortCount + longCount > 1) {
                 env.diag.report(E_SHORT_LONG_T, specifiers.get(0));
@@ -632,6 +721,7 @@ public class CTypeBuilder {
         
         return base;
     }
+    
     private void fillFields(List<CTypeField> lfield, C.CodeDeclaration dcl, boolean in_struct, CType parent_type) {
         List<C.CodeSpecifier>  lspec = dcl._lspec;
         List<C.CodeDeclarator> ldtor = dcl._ldtor;
@@ -640,21 +730,27 @@ public class CTypeBuilder {
         
         for (C.CodeDeclarator dtor: ldtor) {
             
+            CType t;
+            
             // go look for field widths inside of a union, if found, report
             // the error, but proceed assuming
-            if(dtor instanceof C.CodeDeclaratorWidth && !in_struct) {
-                env.diag.report(R_FIELD_WIDTH_STRUCT_ONLY, dtor);
+            if(dtor instanceof C.CodeDeclaratorWidth) {
+                if(!in_struct) {
+                    env.diag.report(R_FIELD_WIDTH_STRUCT_ONLY, dtor);
+                }
                 
-                C.CodeDeclaratorWidth width = (C.CodeDeclaratorWidth) dtor;
-                dtor = width._dtor;
+                t = handleFieldWidth(base, (C.CodeDeclaratorWidth) dtor);
+                
+            } else {
+                t = formTypeFromDeclarator(base, dtor);
             }
             
-            CType t = formTypeFromDeclarator(base, dtor);
             C.CodeId optId = dtor.getOptId();
             
             if(t == parent_type) {
                 env.diag.report(E_COMPOUND_CONTAIN_SELF, dtor);
                 lfield.add(new CTypeField(optId, INVALID_TYPE));
+                
             } else {
                 lfield.add(new CTypeField(optId, t));
             }
