@@ -61,6 +61,7 @@ public enum Message {
     E_TOO_MANY_TYPE_SPECS   (ERROR,         "Too many type specifiers in type."),
     
     E_INCOMPLETE_MULTI_ARRAY(ERROR,         "Multidimensional array has incomplete type. Only the first dimension of a multi-dimensional array can be missing."),
+    E_INCOMPLETE_ARRAY      (ERROR,         "Array has incomplete type. A dimension must be specified."),
     E_AUTO_REG_OUTSIDE_FUNC (ERROR,         "auto/register storage classes are not allowed outside of a function scope."),
     
     E_ARRAY_SIZE_NOT_POS    (ERROR,         "Arrays must have a non-zero positive size. The size of the array ends up being %%."),
@@ -85,7 +86,7 @@ public enum Message {
     E_CALL_FUNC_PTR         (ERROR,         "Cannot perform a function call on an expression that doesn't have a function pointer type."),
     E_CALL_FUNC_MISSING_ARGS(ERROR,         "Too few parameters were passed to the function to be called."),
     E_CALL_FUNC_EXTRA_ARGS  (ERROR,         "Too many parameters were passed to the function to be called."),
-    E_CALL_BAD_ARG_TYPE     (ERROR,         "This function parameter's type is not compatible with the expected type."),
+    E_CALL_BAD_ARG_TYPE     (ERROR,         "The type of the expression passed into this function is not assignable to the parameter type that the function expects in the expression's place."),
     E_BAD_OP_FOR_TYPE       (ERROR,         "This %% operator cannot be used on expressions of this type."),
     
     E_EXPR_HAS_CONST_TYPE   (ERROR,         "Cannot modify expression whose type is const-qualified."),
@@ -95,6 +96,14 @@ public enum Message {
     
     E_INFIX_CANT_UNIFY      (ERROR,         "The types of the infix expression cannot be unified."),
     E_TYPES_NOT_COMPARABLE  (ERROR,         "These expressions cannot be compared."),
+    E_SIGNED_SHIFT          (ERROR,         "The bitwise shifting operators are undefined for signed integers."),
+    E_SIGNS_DONT_AGREE      (ERROR,         "The signs of the operands of the binary expression do not agree."),
+    E_CANT_ADD_POINTERS     (ERROR,         "Pointers cannot be added together."),
+    E_ONLY_ADD_INT_TO_PTR   (ERROR,         "Only integral types can be added to pointers."),
+    E_EXPR_CANT_GO_BOOL     (ERROR,         "One (or both) of the expressions used in this logical connective cannot be used in a boolean context."),
+    
+    E_INVALID_TYPE          (ERROR,         "Invalid type detected. This is likely caused by a nearby typing error, where the initial bad type has propagated up and caused an error here."),
+    E_FUNC_MIX_DECLS        (ERROR,         "This function mixes old-style and new-style declarators."),
     
     B_BUG                   (BUG,           "The following bug was reported: %%."),;
     

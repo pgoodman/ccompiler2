@@ -418,12 +418,14 @@ public class CCodePrinter implements C.CodeVisitor {
 		printSep(cc._argl, ", ");
 		_tout.print(")");
 	}
+	/*
 	public void visit(C.CodeExprSubscript cc) {
 		visit(cc._arr);
 		_tout.print("[");
 		visit(cc._idx);
 		_tout.print("]");
 	}
+	*/
 	public void visit(C.CodeExprField cc) {
 		visit(cc._ob);
 		_tout.print(".");

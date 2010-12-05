@@ -91,7 +91,7 @@ public class C {
         public void visit(CodeExprSizeofValue cc);
         public void visit(CodeExprSizeofType cc);
         public void visit(CodeExprCall cc);
-        public void visit(CodeExprSubscript cc);
+        //public void visit(CodeExprSubscript cc);
         public void visit(CodeExprField cc);
         public void visit(CodeExprPointsTo cc);
     }
@@ -860,6 +860,21 @@ public class C {
     	
     	public void acceptVisitor(CodeVisitor v) { v.visit(this); }
     }
+    
+    static public class CodeExprSubscript extends CodeExprPrefix {
+        public CodeExprSubscript(CodeExpr arr, CodeExpr idx) {
+            super(new CTokenOperator(CTokenType.STAR), new CodeExprInfix(
+                new CTokenOperator(CTokenType.PLUS), 
+                arr, 
+                idx
+            ));
+            
+            this._a.copyPosition(idx);
+            this.copyPosition(arr);
+        }
+    }
+    
+    /*
     static public class CodeExprSubscript extends CodeExpr {
     	public CodeExpr _arr;
     	public CodeExpr _idx;
@@ -872,7 +887,8 @@ public class C {
 	    }
     	
     	public void acceptVisitor(CodeVisitor v) { v.visit(this); }
-    }
+    }*/
+    
     static public class CodeExprField extends CodeExpr {
         public CodeExpr       _ob;
         public CodeId         _id;

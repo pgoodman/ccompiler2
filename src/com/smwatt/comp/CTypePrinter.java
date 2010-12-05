@@ -27,7 +27,7 @@ public class CTypePrinter implements CTypeVisitor {
 		_xo  = new XMLOutputStream(_tout);
 	}
 	
-	public void print(CType ct) { visit(ct); System.out.println(); }
+	public void print(CType ct) { visit(ct); System.out.println("\n"); }
 	
 	/////////////////////////////////////////////////////////////////////
 	private void openElement(String tag, CType ct) {
@@ -96,6 +96,11 @@ public class CTypePrinter implements CTypeVisitor {
 		visit(ct._pointeeType);
 		_xo.endElement();
 	}
+	public void visit(CTypeFunctionPointer ct) {
+        openElement("func-ptr", ct);
+        visit(ct._pointeeType);
+        _xo.endElement();
+    }
 	public void visit(CTypeEnum ct) {
 	    openElement("enum", ct, ct._optId);
 		for (CTypeEnumerator etor: ct._enumerators)  visit(etor);

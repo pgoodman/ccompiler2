@@ -27,7 +27,9 @@ public abstract class CType {
 	public boolean		_isVolatile    = false;
 	public boolean      _isAddressable = false;
 	
-	public void acceptVisitor(CTypeVisitor v) { v.visit(this); }
+	public void acceptVisitor(CTypeVisitor v) {
+	    v.visit(this);
+	}
 	
 	public CType() {
 	    _id = CType._next_id++;
@@ -78,6 +80,7 @@ public abstract class CType {
 	public interface CTypeComparable { }
 	public interface CTypeAdditive { }
 	public interface CTypeMultiplicative extends CTypeAdditive { }
+	public interface CTypeBooleanSensitive { }
 	
 	/**
      * Used for typedefs, named struct-s, union-s and enum-s.
@@ -96,7 +99,7 @@ public abstract class CType {
     }*/
     
     public static abstract class CTypeArithmetic extends CType 
-    implements CTypeComparable, CTypeMultiplicative {
+    implements CTypeComparable, CTypeMultiplicative, CTypeBooleanSensitive {
         /**
          * The "length" of the numeric type:
          * +n => long^n.
@@ -193,7 +196,8 @@ public abstract class CType {
         }
     }
     
-    public static abstract class CTypePointing extends CType implements CTypeComparable {
+    public static abstract class CTypePointing extends CType 
+    implements CTypeComparable, CTypeBooleanSensitive {
         public CType _pointeeType;
     }
     
@@ -283,6 +287,13 @@ public abstract class CType {
     public static class CSizeT extends CTypeInt {
         public CSizeT() {
             _signed = -1;
+            _length = 1;
+        }
+    }
+    
+    public static class CTypePtrDiffT extends CTypeInt {
+        public CTypePtrDiffT() {
+            _signed = 1;
             _length = 1;
         }
     }
@@ -446,10 +457,12 @@ public abstract class CType {
         public CType copy() {
             return super.copy(new CTypeFunctionPointer(_pointeeType, _count));
         }
+        
+        public void acceptVisitor(CTypeVisitor v) { v.visit(this); }
     }
     
     public static class CTypeArray extends CTypePointing implements CTypeAdditive {
-        CTypeConstExpr          _optSize;
+        public CTypeConstExpr          _optSize;
         
         public CTypeArray(CType elementType, CTypeConstExpr optSize) {
             super();

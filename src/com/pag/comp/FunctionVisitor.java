@@ -336,9 +336,9 @@ public class FunctionVisitor implements CodeVisitor {
 
     }
 
-    public void visit(CodeExprSubscript cc) {
+    /*public void visit(CodeExprSubscript cc) {
 
-    }
+    }*/
 
     public void visit(CodeExprField cc) {
 

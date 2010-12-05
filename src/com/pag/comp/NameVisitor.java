@@ -6,6 +6,7 @@ import static com.pag.diag.Message.*;
 import com.pag.sym.CSymbol;
 import com.pag.sym.Env;
 import com.pag.sym.Type;
+import com.smwatt.comp.C.CodeDeclaratorFunction;
 import com.smwatt.comp.C.CodeDeclaratorParen;
 
 /**
@@ -79,6 +80,10 @@ public class NameVisitor implements CodeVisitor {
         }
         
         func._internal_scope = env.pushScope(func);
+        
+        //CodeDeclaratorFunction func = (CodeDeclaratorFunction) cc._head;
+        
+        
         
         // go collect function parameter names. if this is an new-style
         // function then we will visit cc._head twice. two passes are done
@@ -389,7 +394,11 @@ public class NameVisitor implements CodeVisitor {
         if(null != cc._argl) {
             ++func_param_list_count;
             for(Code decl : cc._argl) {
-                decl.acceptVisitor(this);
+                if(decl instanceof CodeId) {
+                    env.addSymbol(((CodeId) decl)._s, Type.VARIABLE, decl);
+                } else {
+                    decl.acceptVisitor(this);
+                }
             }
             --func_param_list_count;
         }
@@ -443,6 +452,7 @@ public class NameVisitor implements CodeVisitor {
         cc._scope = env.getScope();
         String name = cc.getOptId()._s;
         CSymbol sym = env.getSymbol(name);
+        CodeId id = cc._id;
         
         // function parameter list
         if(in_func_head && 0 < func_param_list_count) {
@@ -469,6 +479,11 @@ public class NameVisitor implements CodeVisitor {
         // global scope or function body, symbol with same name exists
         } else if(null != sym) {
             
+            // we're looking at the same symbol :P
+            if(sym.code == id) {
+                return;
+            }
+            
             // variable already declared, it will either shadow a global or
             // re-declare a local
             if(Type.VARIABLE == sym.type) {
@@ -486,7 +501,9 @@ public class NameVisitor implements CodeVisitor {
             
             // name clash between global var and func.
             } else if(Type.FUNC_DECL == sym.type || Type.FUNC_DEF == sym.type) {
-                if(0 == func_declarator_count || pointer_declarator_count > 0) {
+                if(0 == func_declarator_count 
+                || pointer_declarator_count > 0) {
+                    
                     env.diag.report(
                         !in_func_body ? E_VAR_REDEF_FUNC : W_VAR_REDEF_FUNC, 
                         cc, name, sym.code.getSourcePosition()
@@ -730,12 +747,14 @@ public class NameVisitor implements CodeVisitor {
         }
         cc._fun.acceptVisitor(this);
     }
-
+    
+    /*
     public void visit(CodeExprSubscript cc) {
         cc._scope = env.getScope();
         cc._arr.acceptVisitor(this);
         cc._idx.acceptVisitor(this);
     }
+    */
 
     public void visit(CodeExprField cc) {
         cc._ob.acceptVisitor(this);

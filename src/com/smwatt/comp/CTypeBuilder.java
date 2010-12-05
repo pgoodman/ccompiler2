@@ -178,7 +178,7 @@ public class CTypeBuilder {
                     // Should have a different entry point with declaration list.
                     // handled by ExprTypeVisitor :D
                     hadId        = true;
-                    hadDotDotDot = true; // Pretend.
+                    //hadDotDotDot = true; // Pretend.
                 
                 } else if (cc instanceof C.CodeDotDotDot) {
                     hadDotDotDot = true;
@@ -284,7 +284,7 @@ public class CTypeBuilder {
                         );
                         
                         switch (qspec._spec._type) {
-                        case CTokenType.CONST: 
+                        case CTokenType.CONST:
                             constCount++; break;
                         case CTokenType.VOLATILE: 
                             volatileCount++; break;
@@ -292,27 +292,30 @@ public class CTypeBuilder {
                             otherCount++;
                         }
                     }
-                    
-                    if (otherCount > 0) {
-                        env.diag.report(
-                            B_BUG, 
-                            spec, 
-                            "Non-type-qualifiers were found between two pointer declarators"
-                        );
-                        return INVALID_TYPE;
-                    }
-                    if (constCount + volatileCount > 1) {
-                        env.diag.report(E_POINTER_MULTI_QUALIF, spec);
-                        return INVALID_TYPE;
-                    }
-                    if (constCount > 0) {
-                        base._isConst = true;
-                    }
-                    
-                    if (volatileCount > 0) {
-                        base._isVolatile = true;
-                    }
                 }
+                
+                if (otherCount > 0) {
+                    env.diag.report(
+                        B_BUG, 
+                        star, 
+                        "Non-type-qualifiers were found between two pointer declarators"
+                    );
+                    return INVALID_TYPE;
+                }
+                
+                if (constCount + volatileCount > 1) {
+                    env.diag.report(E_POINTER_MULTI_QUALIF, star);
+                    return INVALID_TYPE;
+                }
+                
+                if (constCount > 0) {
+                    base._isConst = true;
+                }
+                
+                if (volatileCount > 0) {
+                    base._isVolatile = true;
+                }
+                
                 star = star._optStar;
             }
             return formTypeFromDeclarator(base, pdtor._optPointee);
@@ -394,7 +397,7 @@ public class CTypeBuilder {
         boolean has_error   = false;
         
         for (C.CodeSpecifier spec: specifiers) {
-            
+                        
             if (spec instanceof C.CodeSpecifierType) {
                 C.CodeSpecifierType tspec = (C.CodeSpecifierType) spec;
                 
@@ -456,8 +459,9 @@ public class CTypeBuilder {
                 }
             
             } else if (spec instanceof C.CodeSpecifierQualifier) {
-                C.CodeSpecifierQualifier qspec = 
-                    (C.CodeSpecifierQualifier) spec;
+                
+                C.CodeSpecifierQualifier qspec = (C.CodeSpecifierQualifier) spec;
+                
                 switch (qspec._spec._type) {
                 case CTokenType.CONST:
                     constCount++;
@@ -483,8 +487,7 @@ public class CTypeBuilder {
                     
                     List<? extends C.Code> ldecl = sspec._optParts;
                     
-                    ArrayList<CTypeField> lfield = 
-                        new ArrayList<CTypeField>();
+                    ArrayList<CTypeField> lfield = new ArrayList<CTypeField>();
                     
                     // note: putting before we expand out the inside so that
                     //       we can self-reference a struct.
@@ -529,13 +532,13 @@ public class CTypeBuilder {
                 if (uspec._optParts != null) {
                     
                     List<? extends C.Code> ldecl = uspec._optParts;
-                    ArrayList<CTypeField> lfield = 
-                        new ArrayList<CTypeField>();
+                    ArrayList<CTypeField> lfield = new ArrayList<CTypeField>();
                     
                     base = new CTypeUnion(uspec._optId, lfield);
                     uspec._type = base;
                     
                     for (C.Code d: ldecl) {
+                        
                         if (d instanceof C.CodeDeclaration) {
                             fillFields(lfield, (C.CodeDeclaration) d, false, base);
                         } else {
@@ -558,11 +561,14 @@ public class CTypeBuilder {
             
             // enumeration
             } else if (spec instanceof C.CodeSpecifierEnum) {
+                
                 if (base != null) {
                     has_error = true;
                     env.diag.report(E_TOO_MANY_TYPE_SPECS, spec);
                 }
+                
                 C.CodeSpecifierEnum espec = (C.CodeSpecifierEnum) spec;
+                
                 if (espec._optParts != null) {
                     
                     List<? extends C.Code> lcc= espec._optParts;
@@ -682,7 +688,7 @@ public class CTypeBuilder {
         }
 
         if (constCount + volatileCount > 0) {
-            if (constCount + volatileCount > 0) {
+            if (constCount + volatileCount > 1) {
                 env.diag.report(E_MULTI_QUALIFIER, specifiers.get(0));
                 has_error = true;
             }

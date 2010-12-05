@@ -1,5 +1,7 @@
 package com.pag;
 
+import static com.pag.diag.Message.E_INVALID_TYPE;
+
 import com.pag.comp.TypeInferenceVisitor;
 import com.pag.comp.Phase;
 import com.pag.diag.Message;
@@ -33,7 +35,16 @@ public class Question3 {
         new Phase() {
             public boolean apply(Env env, Code code) {
                 TypeInferenceVisitor visitor = new TypeInferenceVisitor(env);
-                visitor.visit(code);
+                
+                try {
+                    visitor.visit(code);
+                    
+                // 
+                } catch(java.lang.ClassCastException ex) {
+                    ex.printStackTrace();
+                    return false;
+                }
+                
                 return !Reporter.errorReported();
             }
         });

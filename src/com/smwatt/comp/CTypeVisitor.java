@@ -21,6 +21,7 @@ public interface CTypeVisitor {
 	public void visit(CTypeFunction    ct);
 	public void visit(CTypeArray       ct);
 	public void visit(CTypePointer     ct);
+	public void visit(CTypeFunctionPointer ct);
 	public void visit(CTypeEnum        ct);
 	public void visit(CTypeStruct      ct);
 	public void visit(CTypeUnion       ct);

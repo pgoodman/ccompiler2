@@ -303,10 +303,10 @@ public class ExpressionInterpreterVisitor implements CodeVisitor {
         env.diag.report(E_NON_CONSTANT_EXPR, cc);
     }
     
-    public void visit(CodeExprSubscript cc) {
+    /*public void visit(CodeExprSubscript cc) {
         // TODO 
         
-    }
+    }*/
     
     public void visit(CodeExprField cc) {
         env.diag.report(E_NON_CONSTANT_EXPR, cc);
