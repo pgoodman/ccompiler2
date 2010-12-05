@@ -94,6 +94,7 @@ public enum Message {
     E_DEREF_NON_POINTER     (ERROR,         "Non-pointers/arrays cannot be de-referenced."),
     
     E_INFIX_CANT_UNIFY      (ERROR,         "The types of the infix expression cannot be unified."),
+    E_TYPES_NOT_COMPARABLE  (ERROR,         "These expressions cannot be compared."),
     
     B_BUG                   (BUG,           "The following bug was reported: %%."),;
     

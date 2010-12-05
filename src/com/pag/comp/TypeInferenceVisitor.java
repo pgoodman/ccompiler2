@@ -3,6 +3,7 @@ package com.pag.comp;
 import static com.smwatt.comp.C.*;
 import static com.pag.diag.Message.*;
 
+import com.pag.sym.CSymbol;
 import com.pag.sym.Env;
 import com.pag.sym.Type;
 import com.smwatt.comp.CTokenOperator;
@@ -30,23 +31,42 @@ public class TypeInferenceVisitor implements CodeVisitor {
     private CTypeBuilder builder;
     private CTypePrinter printer;
     
-    final private CType CHAR_TYPE;
-    final private CodeExpr NULL_POINTER;
-    final private CType DEFAULT_INT;
+    private CTypeArithmetic CHAR_TYPE;
+    private CTypeArithmetic INT_TYPE;
+    private CTypeArithmetic LONG_INT_TYPE;
+    private CTypeArithmetic DOUBLE_TYPE;
+    private CTypePointing VOID_POINTER_TYPE;
+    
+    private CodeExpr NULL_POINTER;
+    private CodeExpr ZERO_INT;
+    private CodeExpr ZERO_FLOAT;
+    
+    // are we inside a compound type?
+    private int compound_count = 0;
     
     public TypeInferenceVisitor(Env ee) {
         env = ee;
         builder = new CTypeBuilder(ee);
         printer = new CTypePrinter(System.out);
         
+        // basic types used in substitution expressions
         CHAR_TYPE = new CTypeChar();
+        INT_TYPE = new CTypeInt();
+        LONG_INT_TYPE = new CTypeInt();
+        DOUBLE_TYPE = new CTypeDouble();
+        VOID_POINTER_TYPE = new CTypePointer(new CTypeVoid());
         
-        NULL_POINTER = new CodeExprCast(
-            new CTypePointer(new CTypeVoid()), 
-            new CodeIntegerConstant(0)
-        );
+        // basic constructions of substitution expressions
+        ZERO_INT = new CodeIntegerConstant(0);
+        ZERO_FLOAT = new CodeFloatingConstant(0.0);
+        NULL_POINTER = castTo(ZERO_INT, VOID_POINTER_TYPE);
         
-        DEFAULT_INT = new CTypeInt();
+        // type assignment of substitution expressions
+        ZERO_INT._type = LONG_INT_TYPE;
+        ZERO_FLOAT._type = DOUBLE_TYPE;
+        NULL_POINTER._type = VOID_POINTER_TYPE;
+        
+        LONG_INT_TYPE.makeLong();
     }
     
     /**
@@ -56,11 +76,13 @@ public class TypeInferenceVisitor implements CodeVisitor {
      * @return
      */
     private CodeExpr pointerToBool(CodeExpr expr) {
-        return new CodeExprInfix(
+        CodeExpr ret = new CodeExprInfix(
             new CTokenOperator(CTokenType.EQUALS),
             expr,
             NULL_POINTER 
         );
+        ret._type = INT_TYPE;
+        return ret;
     }
     
     /**
@@ -70,7 +92,27 @@ public class TypeInferenceVisitor implements CodeVisitor {
      * @return
      */
     private CodeExpr floatToBool(CodeExpr expr) {
-        return new CodeExprCast(DEFAULT_INT, expr);
+        CodeExpr ret = new CodeExprInfix(
+            new CTokenOperator(CTokenType.EQUALS),
+            expr,
+            ZERO_FLOAT 
+        );
+        ret._type = INT_TYPE;
+        return ret;
+    }
+    
+    /**
+     * Create code to be substituted into the parse tree that will perform
+     * a type cast.
+     * 
+     * @param expr
+     * @param type
+     * @return
+     */
+    private CodeExpr castTo(CodeExpr expr, CType type) {
+        CodeExpr ret = new CodeExprCast(type, expr);
+        ret._type = type;
+        return ret;
     }
     
     public void visit(Code cc) {
@@ -102,10 +144,14 @@ public class TypeInferenceVisitor implements CodeVisitor {
                 
                 CType arg_type = builder.formType(decl._lspec, dtor);
                 dtor._type = arg_type;
+                
                 CodeId id = dtor.getOptId();
+                
                 if(null != id) {
                     id._type = dtor._type;
+                    id._type._isAddressable = true;
                 }
+                
                 if(null != arg_type) {
                     type._argTypes.add(arg_type);
                 }
@@ -129,13 +175,18 @@ public class TypeInferenceVisitor implements CodeVisitor {
             
             // set the type of the id
             CodeId id = dtor.getOptId();
+            
             if(null != id) {
+                
                 id._type = dtor._type;
+                id._type._isAddressable = true;
                 
                 // makes sure we don't try to use function types unless they
                 // are function pointers
                 if(!dtor._is_typedef) {
-                    if(id._type instanceof CTypeFunction) {
+                    
+                    if(id._type instanceof CTypeFunction
+                    && 0 != compound_count) {
                         env.diag.report(E_SYMBOL_FUNC_TYPE, id);
                         id._type = builder.INVALID_TYPE;
                     }
@@ -228,19 +279,23 @@ public class TypeInferenceVisitor implements CodeVisitor {
     public void visit(CodeSpecifierTypedefName cc) { }
 
     public void visit(CodeSpecifierStruct cc) {
+        ++compound_count;
         if(null != cc._optParts) {
             for(Code part : cc._optParts) {
                 part.acceptVisitor(this);
             }
         }
+        --compound_count;
     }
 
     public void visit(CodeSpecifierUnion cc) {
+        ++compound_count;
         if(null != cc._optParts) {
             for(Code part : cc._optParts) {
                 part.acceptVisitor(this);
             }
         }
+        --compound_count;
     }
 
     public void visit(CodeSpecifierEnum cc) {
@@ -291,6 +346,13 @@ public class TypeInferenceVisitor implements CodeVisitor {
     public void visit(CodeDeclaratorInit cc) {
         cc._initializer.acceptVisitor(this);
         cc._dtor.acceptVisitor(this);
+        
+        // don't let us initialize a function type
+        CodeId id = cc._dtor.getOptId();
+        if(id._type instanceof CTypeFunction) {
+            env.diag.report(E_SYMBOL_FUNC_TYPE, cc);
+            id._type = builder.INVALID_TYPE;
+        }
     }
 
     public void visit(CodeDeclaratorPointer cc) {
@@ -310,7 +372,7 @@ public class TypeInferenceVisitor implements CodeVisitor {
     }
 
     public void visit(CodeDeclaratorId cc) {
-        // TODO ?
+        //cc._id._type._isAddressable = true;
     }
 
     public void visit(CodePointerStar cc) {
@@ -468,6 +530,22 @@ public class TypeInferenceVisitor implements CodeVisitor {
         cc._elexpr.acceptVisitor(this);
         // TODO yield type, LUB of cc._thexpr and cc.elexpr
     }
+    
+    private void binaryOpMeetTypes(CodeExprInfix cc) {
+        CType ta = cc._a._type;
+        CType tb = cc._b._type;
+        
+        int size_of_a = ta.sizeOf(env);
+        int size_of_b = tb.sizeOf(env);
+        
+        if(size_of_a != size_of_b) {
+            if(size_of_a < size_of_b) {
+                cc._a = castTo(cc._a, tb);
+            } else {
+                cc._b = castTo(cc._b, ta);
+            }
+        }
+    }
 
     public void visit(CodeExprInfix cc) {
         // TODO check types of both sides with operator
@@ -481,15 +559,8 @@ public class TypeInferenceVisitor implements CodeVisitor {
         CType ta = cc._a._type;
         CType tb = cc._b._type;
         
-        
-        // step 1: pretend to compute a least upper bound on the two types
-        //         in order to make checking easier.
+        // step 1: fail fast on relational operators
         switch(cc._op._type) {
-            case CTokenType.PLUS:
-            case CTokenType.MINUS:
-            case CTokenType.STAR:
-            case CTokenType.SLASH:
-            case CTokenType.MOD:
             case CTokenType.EQUALS:
             case CTokenType.NOT_EQUALS:
             case CTokenType.LT:
@@ -497,26 +568,92 @@ public class TypeInferenceVisitor implements CodeVisitor {
             case CTokenType.LT_EQ:
             case CTokenType.GT_EQ:
                 
-                boolean to_float = (
-                    ta instanceof CTypeFloat || tb instanceof CTypeFloat
-                );
+                if(!(ta instanceof CTypeComparable)
+                || !(tb instanceof CTypeComparable)) {
+                    env.diag.report(E_TYPES_NOT_COMPARABLE, cc);
+                    return;
+                }
                 
-                if(to_float) {
+                // the types are comparable, let's make sure that one
+                // can be brought to the other.
+                if(!ta.canBeCastTo(tb) && !tb.canBeCastTo(ta)) {
+                    env.diag.report(E_INFIX_CANT_UNIFY, cc);
+                    return;
+                }
+                
+                binaryOpMeetTypes(cc);
+                
+        }
+        
+        // re-compute
+        ta = cc._a._type;
+        tb = cc._b._type;
+        
+        boolean a_is_integral = ta instanceof CTypeIntegral;
+        boolean b_is_integral = tb instanceof CTypeIntegral;
+        
+        int size_of_a = ta.sizeOf(env);
+        int size_of_b = tb.sizeOf(env);
+        
+        // step 2: fail fast on arithmetic
+        switch(cc._op._type) {
+            
+            case CTokenType.STAR:
+            case CTokenType.SLASH:
+            case CTokenType.MOD:
+                
+                if(!(ta instanceof CTypeMultiplicative)
+                || !(tb instanceof CTypeMultiplicative)) {
+                    env.diag.report(E_BAD_OP_FOR_TYPE, cc, "infix");
+                }
+                // fall-through
+                
+            case CTokenType.PLUS:
+            case CTokenType.MINUS:
+                
+                if(!(ta instanceof CTypeAdditive)
+                || !(tb instanceof CTypeAdditive)) {
+                    env.diag.report(E_BAD_OP_FOR_TYPE, cc, "infix");
+                    return;
+                }
+                // fall-through
+                
+            case CTokenType.EQUALS:
+            case CTokenType.NOT_EQUALS:
+            case CTokenType.LT:
+            case CTokenType.GT:
+            case CTokenType.LT_EQ:
+            case CTokenType.GT_EQ:
+                
+                boolean a_is_float = ta instanceof CTypeFloating;
+                boolean b_is_float = tb instanceof CTypeFloating;
+                
+                // both arguments are float, but of different widths
+                if(a_is_float && b_is_float) {
                     
-                    // one of them is a float and the other can't be promoted
-                    // to a float
+                    binaryOpMeetTypes(cc);
+                
+                // one of the arguments is float; convert the other to float
+                } if(a_is_float && !b_is_float || !a_is_float && b_is_float) {
+                    
                     if(!ta.canBeCastTo(tb) && !tb.canBeCastTo(ta)) {
                         env.diag.report(E_INFIX_CANT_UNIFY, cc);
                         return;
                     }
-                }
-                
-                // pretend tb is bigger
-                if(ta.sizeOf(env) < tb.sizeOf(env)) {
                     
+                    if(a_is_float) {
+                        cc._b = castTo(cc._b, ta);
+                    }
+                    
+                    if(b_is_float) {
+                        cc._a = castTo(cc._a, tb);
+                    }
+                
+                // neither argument is float
                 } else {
                     
                 }
+                
                 
                 break;
                 
@@ -649,7 +786,7 @@ public class TypeInferenceVisitor implements CodeVisitor {
                     
                     // arithmetic check
                     } else {
-                        cc._type = DEFAULT_INT;
+                        cc._type = INT_TYPE;
                         
                         // add in an integer cast
                         if(tt instanceof CTypeFloat) {
@@ -675,8 +812,9 @@ public class TypeInferenceVisitor implements CodeVisitor {
     }
 
     public void visit(CodeExprId cc) {
-        cc._type = cc._scope.get(cc._id._s).code._type;
-        
+        CSymbol sym = cc._scope.get(cc._id._s);
+        cc._type = sym.code._type;
+                
         // handle function pointers
         if(cc._type instanceof CTypeFunction) {
             cc._type = CTypePointer.optNew(cc._type);

@@ -22,7 +22,6 @@ import com.pag.sym.Type;
 public class FunctionVisitor implements CodeVisitor {
     
     private Env env;
-    private CodeId func_id;
     private boolean found_static;
     
     public FunctionVisitor(Env static_env) {
@@ -57,7 +56,9 @@ public class FunctionVisitor implements CodeVisitor {
         }
         cc._head.acceptVisitor(this);
         
+        CodeId func_id = cc._head.getOptId();
         CSymbol sym = env.getSymbol(func_id._s);
+        
         if(null != sym) {
             
             // multiple definitions of the same function
@@ -80,7 +81,7 @@ public class FunctionVisitor implements CodeVisitor {
     }
 
     public void visit(CodeDeclaration cc) {
-        func_id = null;
+        //func_id = null;
         found_static = false;
         
         if(null != cc._lspec) {
@@ -96,28 +97,43 @@ public class FunctionVisitor implements CodeVisitor {
         }
         
         if(null != cc._ldtor) {
-            for(CodeDeclarator decl : cc._ldtor) {
-                if(null != decl) {
-                    decl.acceptVisitor(this);
+            for(CodeDeclarator dtor : cc._ldtor) {
+                if(null == dtor) {
+                    continue;
+                }
+                
+                //func_id = null;
+                dtor.acceptVisitor(this);
+
+                CodeDeclaratorFunction func = dtor.getOptFunction();
+                
+                if(null == func) {
+                    continue;
+                }
+                
+                CodeId func_id = func.getOptId();
+                CSymbol sym = env.getSymbol(func_id._s);
+                
+                if(null != sym) {
+                    if(Type.FUNC_DEF == sym.type) {
+                        env.diag.report(
+                            N_FUNC_DECL_REDUNDANT, 
+                            func_id, sym.code.getSourcePosition()
+                        );
+                        
+                        sym.declarations.add(cc);
+                    } else if(Type.FUNC_DECL == sym.type) {
+                        env.diag.report(N_FUNC_DECL_REPEAT, func_id);
+                        sym.declarations.add(cc);
+                    }
+                } else {
+                    sym = env.addSymbol(func_id._s, Type.FUNC_DECL, func_id);
+                    sym.declarations.add(cc);
                 }
             }
         }
         
-        if(null != func_id) {
-            CSymbol sym = env.getSymbol(func_id._s);
-            if(null != sym) {
-                if(Type.FUNC_DEF == sym.type) {
-                    env.diag.report(N_FUNC_DECL_REDUNDANT, cc, sym.code.getSourcePosition());
-                    sym.declarations.add(cc);
-                } else if(Type.FUNC_DECL == sym.type) {
-                    env.diag.report(N_FUNC_DECL_REPEAT, cc);
-                    sym.declarations.add(cc);
-                }
-            } else {
-                sym = env.addSymbol(func_id._s, Type.FUNC_DECL, cc);
-                sym.declarations.add(cc);
-            }
-        }
+        
     }
 
     public void visit(CodeId cc) {
@@ -189,7 +205,6 @@ public class FunctionVisitor implements CodeVisitor {
     }
 
     public void visit(CodeDeclaratorFunction cc) {
-        func_id = cc.getOptId();
     }
 
     public void visit(CodeDeclaratorInit cc) {

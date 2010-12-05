@@ -22,7 +22,7 @@ public abstract class CType {
     
     static private int  _next_id       = 0;
     
-    protected int         _id            = 0;
+    protected int       _id            = 0;
 	public boolean		_isConst 	   = false;
 	public boolean		_isVolatile    = false;
 	public boolean      _isAddressable = false;
@@ -74,7 +74,10 @@ public abstract class CType {
 	
 	abstract public int sizeOf(Env e);
 	
-	public static abstract class CTypeAbstractPointer extends CType { }
+	// traits through interfaces.. hoorah :P 
+	public interface CTypeComparable { }
+	public interface CTypeAdditive { }
+	public interface CTypeMultiplicative extends CTypeAdditive { }
 	
 	/**
      * Used for typedefs, named struct-s, union-s and enum-s.
@@ -92,7 +95,8 @@ public abstract class CType {
         }
     }*/
     
-    public static abstract class CTypeArithmetic extends CType {
+    public static abstract class CTypeArithmetic extends CType 
+    implements CTypeComparable, CTypeMultiplicative {
         /**
          * The "length" of the numeric type:
          * +n => long^n.
@@ -109,6 +113,10 @@ public abstract class CType {
         public CType copy(CType c) {
             ((CTypeArithmetic) c)._length = _length;
             return super.copy(c);
+        }
+        
+        public void makeLong() {
+            ++_length;
         }
     }
     
@@ -185,7 +193,7 @@ public abstract class CType {
         }
     }
     
-    public static abstract class CTypePointing extends CTypeAbstractPointer {
+    public static abstract class CTypePointing extends CType implements CTypeComparable {
         public CType _pointeeType;
     }
     
@@ -440,7 +448,7 @@ public abstract class CType {
         }
     }
     
-    public static class CTypeArray extends CTypePointing {
+    public static class CTypeArray extends CTypePointing implements CTypeAdditive {
         CTypeConstExpr          _optSize;
         
         public CTypeArray(CType elementType, CTypeConstExpr optSize) {
@@ -491,7 +499,7 @@ public abstract class CType {
             return super.copy(new CTypeArray(_pointeeType, _optSize));
         }
     }
-    public static class CTypePointer extends CTypePointing {
+    public static class CTypePointer extends CTypePointing implements CTypeAdditive {
         
         public CTypePointer(CType pointeeType) {
             super();

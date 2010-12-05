@@ -284,6 +284,11 @@ public class C {
     
     static public class CodeFloatingConstant extends CodeConstant {
     	CodeFloatingConstant(String s) { super(s); }
+    	
+    	public CodeFloatingConstant(double i) {
+            super("");
+            _const_val = new Double(i);
+        }
     
     	public void acceptVisitor(CodeVisitor v) { v.visit(this); }
     }
