@@ -5,6 +5,8 @@ import static com.pag.diag.Message.*;
 
 import com.pag.sym.Env;
 import com.pag.sym.Type;
+import com.smwatt.comp.CTokenOperator;
+import com.smwatt.comp.CTokenType;
 import com.smwatt.comp.CTypeBuilder;
 import com.smwatt.comp.CTypePrinter;
 import com.smwatt.comp.CType;
@@ -19,18 +21,48 @@ public class TypeInferenceVisitor implements CodeVisitor {
     private Env env;
     private CTypeBuilder builder;
     private CTypePrinter printer;
-    //private CType STRING_TYPE;
-    private CType CHAR_TYPE;
+    
+    final private CType CHAR_TYPE;
+    final private CodeExpr NULL_POINTER;
+    final private CType DEFAULT_INT;
     
     public TypeInferenceVisitor(Env ee) {
         env = ee;
         builder = new CTypeBuilder(ee);
         printer = new CTypePrinter(System.out);
         
-        //STRING_TYPE = new CTypePointer(new CTypeChar());
         CHAR_TYPE = new CTypeChar();
+        NULL_POINTER = new CodeExprCast(
+            new CTypePointer(new CTypeVoid()), 
+            new CodeIntegerConstant(0)
+        );
+        DEFAULT_INT = new CTypeInt();
     }
-
+    
+    /**
+     * Create code to be substituted into the parse tree that will perform
+     * the needed conversion to go pointer -> boolean context (int).
+     * @param expr
+     * @return
+     */
+    private CodeExpr pointerToBool(CodeExpr expr) {
+        return new CodeExprInfix(
+            new CTokenOperator(CTokenType.EQUALS),
+            expr,
+            NULL_POINTER 
+        );
+    }
+    
+    /**
+     * Create code to be substituted into the parse tree that will perform
+     * the needed conversion to go float -> boolean context (int).
+     * @param expr
+     * @return
+     */
+    private CodeExpr floatToBool(CodeExpr expr) {
+        return new CodeExprCast(DEFAULT_INT, expr);
+    }
+    
     public void visit(Code cc) {
         cc.acceptVisitor(this);
     }
@@ -43,6 +75,9 @@ public class TypeInferenceVisitor implements CodeVisitor {
 
     public void visit(CodeFunction cc) {
         cc._type = builder.formType(cc._lspec, cc._head);
+        cc._type._isConst = true;
+        cc._type._isAddressable = true;
+        
         CTypeFunction type = (CTypeFunction) cc._type;
         
         cc._head.acceptVisitor(this);
@@ -141,27 +176,35 @@ public class TypeInferenceVisitor implements CodeVisitor {
             )
         );
         
+        // set up the behaviour of this constant
+        ((CTypeArray) cc._type)._pointeeType._isConst = true;
+        cc._type._isAddressable = true;
+        
         cc._const_val = cc._s;
     }
 
     public void visit(CodeCharacterConstant cc) {
         cc._type = CHAR_TYPE;
+        cc._type._isConst = true;
         char[] as_array = cc._s.toCharArray();
         cc._const_val = new Integer(as_array[0]);
     }
 
     public void visit(CodeIntegerConstant cc) {
         cc._type = new CTypeInt();
+        cc._type._isConst = true;
         cc._const_val = Integer.valueOf(cc._s);
     }
 
     public void visit(CodeFloatingConstant cc) {
         cc._type = new CTypeDouble();
+        cc._type._isConst = true;
         cc._const_val = Double.valueOf(cc._s);
     }
 
     public void visit(CodeEnumerationConstant cc) {
         cc._type = cc._scope.get(cc._s, Type.ENUMERATOR).code._type;
+        cc._type._isConst = true;
     }
 
     public void visit(CodeDotDotDot cc) { }
@@ -420,7 +463,36 @@ public class TypeInferenceVisitor implements CodeVisitor {
         // TODO check types of both sides with operator
         cc._a.acceptVisitor(this);
         cc._b.acceptVisitor(this);
+        
+        cc._type = builder.INVALID_TYPE;
+        
         // TODO yield type
+        
+        CType ta = cc._a._type;
+        CType tb = cc._b._type;
+        
+        switch(cc._op._type) {
+            case CTokenType.COMMA:
+            case CTokenType.VBAR_VBAR:
+            case CTokenType.AMP_AMP:
+            case CTokenType.VBAR:
+            case CTokenType.XOR:
+            case CTokenType.AMP:
+            case CTokenType.EQUALS:
+            case CTokenType.NOT_EQUALS:
+            case CTokenType.LT:
+            case CTokenType.GT:
+            case CTokenType.LT_EQ:
+            case CTokenType.GT_EQ:
+            case CTokenType.LSH:
+            case CTokenType.RSH:
+            case CTokenType.PLUS:
+            case CTokenType.MINUS:
+            case CTokenType.STAR:
+            case CTokenType.SLASH:
+            case CTokenType.MOD:
+            
+        }
     }
 
     public void visit(CodeExprParen cc) {
@@ -429,22 +501,125 @@ public class TypeInferenceVisitor implements CodeVisitor {
     }
 
     public void visit(CodeExprPostfix cc) {
-        // TODO check type of expression with operator
         cc._a.acceptVisitor(this);
-        // TODO yield type
+        cc._type = builder.INVALID_TYPE;
+        
+        CType tt = cc._a._type;
+        
+        switch(cc._op._type) {
+            case CTokenType.PLUS_PLUS:
+            case CTokenType.MINUS_MINUS:
+                if(tt instanceof CTypeArithmetic
+                || tt instanceof CTypePointer) {
+                    
+                    if(tt._isConst) {
+                        env.diag.report(E_EXPR_HAS_CONST_TYPE, cc);
+                        
+                    } else if(!tt._isAddressable) {
+                        env.diag.report(E_EXPR_NOT_ADDRESSABLE, cc);
+                        
+                    } else {
+                        cc._type = tt.copy();
+                        cc._type._isAddressable = false;
+                    }
+                } else {
+                    env.diag.report(E_BAD_OP_FOR_TYPE, cc, "postfix");
+                }
+                break;
+        }
     }
 
     public void visit(CodeExprPrefix cc) {
         
-        // TODO function pointers?
-        
-        // TODO check type of expression with operator
         cc._a.acceptVisitor(this);
-        // TODO yield type
+        cc._type = builder.INVALID_TYPE;
+        
+        CType tt = cc._a._type;
+        
+        switch(cc._op._type) {
+            case CTokenType.PLUS_PLUS:
+            case CTokenType.MINUS_MINUS:
+                if(tt instanceof CTypeArithmetic
+                || tt instanceof CTypePointer) {
+                    
+                    if(tt._isConst) {
+                        env.diag.report(E_EXPR_HAS_CONST_TYPE, cc);
+                    } else if(!tt._isAddressable) {
+                        env.diag.report(E_EXPR_NOT_ADDRESSABLE, cc);
+                    } else {
+                        cc._type = tt;
+                    }
+                } else {
+                    env.diag.report(E_BAD_OP_FOR_TYPE, cc, "prefix");
+                }
+                break;
+                
+            case CTokenType.AMP:
+                if(!tt._isAddressable) {
+                    env.diag.report(E_EXPR_NOT_ADDRESSABLE, cc);
+                } else {
+                    cc._type = CTypePointer.optNew(tt);
+                }
+                
+                break;
+                
+            case CTokenType.STAR:
+                if(tt instanceof CTypePointing) {
+                    if(tt instanceof CTypeFunctionPointer) {
+                        env.diag.report(E_DEREF_FUNC_POINTER, cc);
+                    } else {
+                        cc._type = ((CTypePointing) tt)._pointeeType;
+                    }
+                } else {
+                    env.diag.report(E_DEREF_NON_POINTER, cc);
+                }
+                break;
+                
+            case CTokenType.PLUS:
+            case CTokenType.MINUS:
+            case CTokenType.NOT:
+                if(tt instanceof CTypeArithmetic
+                || tt instanceof CTypePointer) {
+                    
+                    // compare the pointer to zero
+                    if(tt instanceof CTypePointer) {
+                        cc._type = new CTypeInt();
+                        cc._a = pointerToBool(cc._a);
+                    
+                    // arithmetic check
+                    } else {
+                        cc._type = DEFAULT_INT;
+                        
+                        // add in an integer cast
+                        if(tt instanceof CTypeFloat) {
+                            cc._a = floatToBool(cc._a);
+                        }
+                    }
+                    
+                    cc._type._isAddressable = false;
+                } else {
+                    env.diag.report(E_BAD_OP_FOR_TYPE, cc, "unary");
+                }
+                break;
+                
+            case CTokenType.TILDE:
+                if(tt instanceof CTypeArithmetic) {
+                    cc._type = tt.copy();
+                    cc._type._isAddressable = false;
+                } else {
+                    env.diag.report(E_BAD_OP_FOR_TYPE, cc, "unary");
+                }
+                break;
+        }
     }
 
     public void visit(CodeExprId cc) {
         cc._type = cc._scope.get(cc._id._s).code._type;
+        
+        // handle function pointers
+        if(cc._type instanceof CTypeFunction) {
+            cc._type = CTypePointer.optNew(cc._type);
+        }
     }
 
     public void visit(CodeExprSizeofValue cc) {
@@ -462,8 +637,6 @@ public class TypeInferenceVisitor implements CodeVisitor {
         });
         
         cc._expr.acceptVisitor(this);
-        
-        // TODO check expression?
         cc._type = new CSizeT();
     }
 
@@ -482,15 +655,12 @@ public class TypeInferenceVisitor implements CodeVisitor {
             }
         });
         
-        // TODO check type?
-                
         cc._tname.acceptVisitor(this);
         cc._type = new CSizeT();
     }
 
     public void visit(CodeExprCall cc) {
         
-        // TODO: check func arg types against function type
         cc._fun.acceptVisitor(this);
         for(CodeExpr expr : cc._argl) {
             expr.acceptVisitor(this);

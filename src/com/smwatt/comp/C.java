@@ -765,7 +765,7 @@ public class C {
     	public CTokenOperator _op;
     	public CodeExpr      _a, _b;
     	
-    	CodeExprInfix(CTokenOperator op, CodeExpr a, CodeExpr b) 
+    	public CodeExprInfix(CTokenOperator op, CodeExpr a, CodeExpr b) 
     	{ 
 	        _op = op; 
 	        _a = a; 

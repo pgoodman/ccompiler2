@@ -7,6 +7,7 @@ import com.pag.sym.Env;
 import com.pag.sym.Type;
 import static com.pag.diag.Message.*;
 
+import com.smwatt.comp.CTokenType;
 import com.smwatt.comp.C.Code;
 
 import static com.smwatt.comp.C.*;
@@ -227,6 +228,29 @@ public class ExpressionInterpreterVisitor implements CodeVisitor {
         // TODO check op
         cc._a.acceptVisitor(this);
         cc._b.acceptVisitor(this);
+        
+        switch(cc._op._type) {
+            case CTokenType.COMMA:
+            case CTokenType.VBAR_VBAR:
+            case CTokenType.AMP_AMP:
+            case CTokenType.VBAR:
+            case CTokenType.XOR:
+            case CTokenType.AMP:
+            case CTokenType.EQUALS:
+            case CTokenType.NOT_EQUALS:
+            case CTokenType.LT:
+            case CTokenType.GT:
+            case CTokenType.LT_EQ:
+            case CTokenType.GT_EQ:
+            case CTokenType.LSH:
+            case CTokenType.RSH:
+            case CTokenType.PLUS:
+            case CTokenType.MINUS:
+            case CTokenType.STAR:
+            case CTokenType.SLASH:
+            case CTokenType.MOD:
+            
+        }
     }
     
     public void visit(CodeExprParen cc) {
@@ -239,6 +263,16 @@ public class ExpressionInterpreterVisitor implements CodeVisitor {
     
     public void visit(CodeExprPrefix cc) {
         // TODO
+        switch(cc._op._type) {
+            case CTokenType.PLUS_PLUS:
+            case CTokenType.MINUS_MINUS:
+            case CTokenType.AMP:
+            case CTokenType.STAR:
+            case CTokenType.PLUS:
+            case CTokenType.MINUS:
+            case CTokenType.TILDE:
+            case CTokenType.NOT:
+        }
     }
     
     public void visit(CodeExprId cc) {

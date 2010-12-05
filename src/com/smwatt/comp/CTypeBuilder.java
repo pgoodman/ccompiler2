@@ -73,7 +73,7 @@ public class CTypeBuilder {
         default: 
             // TODO: Error handling... this should never happen.
             System.out.println("Case 8"); 
-            return new CTypeInvalid();
+            return INVALID_TYPE;
         }
     }
     private CType formTypeFromDeclarator(CType base, C.CodeDeclarator dtor) {
@@ -299,11 +299,11 @@ public class CTypeBuilder {
                             spec, 
                             "Non-type-qualifiers were found between two pointer declarators"
                         );
-                        return new CTypeInvalid();
+                        return INVALID_TYPE;
                     }
                     if (constCount + volatileCount > 1) {
                         env.diag.report(E_POINTER_MULTI_QUALIF, spec);
-                        return new CTypeInvalid();
+                        return INVALID_TYPE;
                     }
                     if (constCount > 0) {
                         base._isConst = true;
@@ -452,10 +452,10 @@ public class CTypeBuilder {
                     break;
                 default:
                     env.diag.report(B_BUG, tspec, "Unknown type specifier");
-                    return new CTypeInvalid();
+                    return INVALID_TYPE;
                 }
-            }
-            else if (spec instanceof C.CodeSpecifierQualifier) {
+            
+            } else if (spec instanceof C.CodeSpecifierQualifier) {
                 C.CodeSpecifierQualifier qspec = 
                     (C.CodeSpecifierQualifier) spec;
                 switch (qspec._spec._type) {
@@ -467,10 +467,11 @@ public class CTypeBuilder {
                     break;
                 default:
                     env.diag.report(B_BUG, spec, "Unknown type qualifier");
-                    return new CTypeInvalid();
+                    return INVALID_TYPE;
                 }
-            }
-            else if (spec instanceof C.CodeSpecifierStruct) {
+            
+            // struct
+            } else if (spec instanceof C.CodeSpecifierStruct) {
                 
                 if (base != null) {
                     has_error = true;
@@ -512,10 +513,11 @@ public class CTypeBuilder {
                     env.diag.report(
                         B_BUG, spec, "Struct missing name and body"
                     );
-                    return new CTypeInvalid();
+                    return INVALID_TYPE;
                 }
-            }
-            else if (spec instanceof C.CodeSpecifierUnion) {
+            
+            // union
+            } else if (spec instanceof C.CodeSpecifierUnion) {
 
                 if (base != null) {
                     has_error = true;
@@ -538,7 +540,7 @@ public class CTypeBuilder {
                             fillFields(lfield, (C.CodeDeclaration) d, false, base);
                         } else {
                             env.diag.report(B_BUG, d, "Invalid code in union body");
-                            return new CTypeInvalid();
+                            return INVALID_TYPE;
                         }
                     }
                     
@@ -551,10 +553,11 @@ public class CTypeBuilder {
                 }
                 else {
                     env.diag.report(B_BUG, spec, "Union missing name and body");
-                    return new CTypeInvalid();
+                    return INVALID_TYPE;
                 }
-            }
-            else if (spec instanceof C.CodeSpecifierEnum) {
+            
+            // enumeration
+            } else if (spec instanceof C.CodeSpecifierEnum) {
                 if (base != null) {
                     has_error = true;
                     env.diag.report(E_TOO_MANY_TYPE_SPECS, spec);
@@ -587,7 +590,7 @@ public class CTypeBuilder {
                             env.diag.report(
                                 B_BUG, spec, "Invalid code in enum body"
                             );
-                            return new CTypeInvalid();
+                            return INVALID_TYPE;
                         }
                     }
                     
@@ -638,10 +641,11 @@ public class CTypeBuilder {
                 }
                 else {
                     env.diag.report(B_BUG, spec, "Enum missing name and body");
-                    return new CTypeInvalid();
+                    return INVALID_TYPE;
                 }
-            }
-            else if (spec instanceof C.CodeSpecifierTypedefName) {
+            
+            // typedef name, substitute it with the actual type
+            } else if (spec instanceof C.CodeSpecifierTypedefName) {
                 C.CodeSpecifierTypedefName tspec = 
                     (C.CodeSpecifierTypedefName) spec;
                 
@@ -657,10 +661,9 @@ public class CTypeBuilder {
                     Type.TYPEDEF_NAME
                 );
                 base = sym.code._type;
-            }
-            
+                
             // storage specifier
-            else {
+            } else {
                 
                 // not allowed to have auto or register storage specifiers
                 // outside of a function scope

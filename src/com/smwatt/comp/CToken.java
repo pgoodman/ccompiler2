@@ -8,7 +8,7 @@
 package com.smwatt.comp;
 
 public class CToken {
-	int	_type;
+	public int	_type;
 	String _fname = null;
 	int _line = -1;
 	int _col  = -1;
