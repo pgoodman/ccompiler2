@@ -304,7 +304,7 @@ public class CCodePrinter implements C.CodeVisitor {
 		_tout.print("for (");
 		if (cc._optInit != null) visit(cc._optInit);
 		_tout.print("; ");
-		if (cc._optTest != null) visit(cc._optTest);
+		if (cc._test != null) visit(cc._test);
 		_tout.print("; ");
 		if (cc._optStep != null) visit(cc._optStep);
 		_tout.print(") ");
@@ -319,7 +319,7 @@ public class CCodePrinter implements C.CodeVisitor {
 		_tout.print("if (");
 		visit(cc._test);
 		_tout.print(") ");
-		printStatIndented(cc._thstat);
+		printStatIndented(cc._stat);
 		if (cc._optElstat != null) {
 			_tout.printlnIndent();
 			_tout.print("else ");

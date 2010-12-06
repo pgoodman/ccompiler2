@@ -79,11 +79,7 @@ public class NameVisitor implements CodeVisitor {
             env.addSymbol(name, Type.FUNC_DEF, cc);
         }
         
-        func._internal_scope = env.pushScope(func);
-        
-        //CodeDeclaratorFunction func = (CodeDeclaratorFunction) cc._head;
-        
-        
+        cc._internal_scope = env.pushScope(func);
         
         // go collect function parameter names. if this is an new-style
         // function then we will visit cc._head twice. two passes are done
@@ -614,8 +610,8 @@ public class NameVisitor implements CodeVisitor {
         if(null != cc._optInit) {
             cc._optInit.acceptVisitor(this);
         }
-        if(null != cc._optTest) {
-            cc._optTest.acceptVisitor(this);
+        if(null != cc._test) {
+            cc._test.acceptVisitor(this);
         }
         if(null != cc._optStep) {
             cc._optStep.acceptVisitor(this);
@@ -641,7 +637,7 @@ public class NameVisitor implements CodeVisitor {
         cc._test.acceptVisitor(this);
         
         env.pushScope(func);
-        cc._thstat.acceptVisitor(this);
+        cc._stat.acceptVisitor(this);
         env.popScope();
         
         if(null != cc._optElstat) {
@@ -658,6 +654,7 @@ public class NameVisitor implements CodeVisitor {
 
     public void visit(CodeStatReturn cc) {
         cc._scope = env.getScope();
+        cc._func = func;
         if(null != cc._optExpr) {
             cc._optExpr.acceptVisitor(this);
         }

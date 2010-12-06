@@ -189,7 +189,7 @@ public class LabelVisitor implements CodeVisitor {
     }
 
     public void visit(CodeStatIf cc) {
-        cc._thstat.acceptVisitor(this);
+        cc._stat.acceptVisitor(this);
         if(null != cc._optElstat) {
             cc._optElstat.acceptVisitor(this);
         }

@@ -4,6 +4,7 @@ import static com.smwatt.comp.C.*;
 import static com.pag.diag.Message.*;
 
 import java.util.Hashtable;
+import java.util.LinkedList;
 
 import com.pag.sym.CSymbol;
 import com.pag.sym.Env;
@@ -44,6 +45,8 @@ public class TypeInferenceVisitor implements CodeVisitor {
     private CodeExpr NULL_POINTER;
     private CodeExpr ZERO_INT;
     private CodeExpr ZERO_FLOAT;
+    
+    private LinkedList<CodeStatSwitch> switch_stack = new LinkedList<CodeStatSwitch>(); 
     
     // are we inside a compound type?
     private int compound_count = 0;
@@ -204,6 +207,18 @@ public class TypeInferenceVisitor implements CodeVisitor {
             if(b_is_float) {
                 cc._a = castTo(cc._a, tb);
             }                
+        }
+    }
+    
+    private void checkTest(CodeStatTestable cc) {
+        if(null == cc._test) {
+            return;
+        }
+        if(!(cc._test._type instanceof CTypeBooleanSensitive)) {
+            env.diag.report(E_TEST_CANT_GO_BOOL, cc._test);
+            cc._test._type = builder.INVALID_TYPE;
+        } else {
+            cc._test = exprToBool(cc._test);
         }
     }
     
@@ -473,8 +488,12 @@ public class TypeInferenceVisitor implements CodeVisitor {
     public void visit(CodeDeclaratorArray cc) {
         if(null != cc._optIndex) {
             cc._optIndex.acceptVisitor(this);
-            // TODO check that type is integer
+            
+            if(!(cc._optIndex._type instanceof CTypeIntegral)) {
+                env.diag.report(E_ARRAY_DIM_INTEGRAL, cc._optIndex);
+            }
         }
+        
         if(null != cc._optAr) {
             cc._optAr.acceptVisitor(this);
         }
@@ -504,6 +523,8 @@ public class TypeInferenceVisitor implements CodeVisitor {
             env.diag.report(E_SYMBOL_FUNC_TYPE, cc);
             id._type = builder.INVALID_TYPE;
         }
+        
+        // TODO check value type
     }
 
     public void visit(CodeDeclaratorPointer cc) {
@@ -514,12 +535,14 @@ public class TypeInferenceVisitor implements CodeVisitor {
     }
 
     public void visit(CodeDeclaratorWidth cc) {
-        // TODO check that width type is integer
-        // TODO check that type of var with with is integral
         if(null != cc._dtor) {
             cc._dtor.acceptVisitor(this);
         }
         cc._width.acceptVisitor(this);
+        
+        if(!(cc._width._type instanceof CTypeIntegral)) {
+            env.diag.report(E_FIELD_WIDTH_INTEGRAL, cc._width);
+        }
     }
 
     public void visit(CodeDeclaratorId cc) {
@@ -553,16 +576,27 @@ public class TypeInferenceVisitor implements CodeVisitor {
 
     public void visit(CodeStatCase cc) {
         cc._value.acceptVisitor(this);
+        cc._switch = switch_stack.peek();
         
-        // TODO check type of value
+        // bad type for case
+        if(!cc._switch._expr._type.canBeAssignedTo(cc._value._type)) {
+            env.diag.report(
+                E_CASE_SWITCH_DISAGREE, 
+                cc, cc._switch._expr.getSourcePosition().toString()
+            );
         
-        env.addPhase(new ParseTreeNodePhase(cc) {
-
-            public boolean apply(Env env, Code code) {
-                // TODO Auto-generated method stub
-                return false;
-            }
-        });
+        // make sure that the case expression can be evaluated at compile
+        // time
+        } else {
+        
+            env.addPhase(new ParseTreeNodePhase(cc) {
+    
+                public boolean apply(Env env, Code code) {
+                    // TODO Auto-generated method stub
+                    return false;
+                }
+            });
+        }
         
         cc._stat.acceptVisitor(this);
     }
@@ -585,7 +619,7 @@ public class TypeInferenceVisitor implements CodeVisitor {
     public void visit(CodeStatDo cc) {
         cc._stat.acceptVisitor(this);
         cc._test.acceptVisitor(this);
-        // TODO check type of test
+        checkTest(cc);
     }
 
     public void visit(CodeStatExpression cc) {
@@ -603,9 +637,9 @@ public class TypeInferenceVisitor implements CodeVisitor {
             cc._optInit.acceptVisitor(this);
         }
         
-        if(null != cc._optTest) {
-            cc._optTest.acceptVisitor(this);
-            // TODO check types of test
+        if(null != cc._test) {
+            cc._test.acceptVisitor(this);
+            checkTest(cc);
         }
         
         if(null != cc._optStep) {
@@ -618,9 +652,11 @@ public class TypeInferenceVisitor implements CodeVisitor {
     public void visit(CodeStatGoto cc) { }
 
     public void visit(CodeStatIf cc) {
-        // TODO check types of test
         cc._test.acceptVisitor(this);
-        cc._thstat.acceptVisitor(this);
+        cc._stat.acceptVisitor(this);
+        
+        checkTest(cc);
+        
         if(null != cc._optElstat) {
             cc._optElstat.acceptVisitor(this);
         }
@@ -639,19 +675,30 @@ public class TypeInferenceVisitor implements CodeVisitor {
             cc._type = new CTypeVoid();
         }
         
-        // TODO check return type against function return type
+        // make sure the return types are okay
+        if(!cc._type.canBeAssignedTo(((CTypeFunction) cc._func._type)._retType)) {
+            
+        }
     }
 
     public void visit(CodeStatSwitch cc) {
+        switch_stack.push(cc);
         cc._expr.acceptVisitor(this);
-        // TODO check test type
+        
+        // check the test type
+        if(!(cc._expr._type instanceof CTypeArithmetic)) {
+            env.diag.report(E_SWITCH_ON_ARITHMETIC, cc._expr);
+            cc._expr._type = builder.INVALID_TYPE;
+        }
         
         cc._stat.acceptVisitor(this);
+        switch_stack.pop();
     }
 
     public void visit(CodeStatWhile cc) {
-        // TODO check test type
         cc._test.acceptVisitor(this);
+        
+        checkTest(cc);
         
         cc._stat.acceptVisitor(this);
     }
@@ -668,9 +715,12 @@ public class TypeInferenceVisitor implements CodeVisitor {
         cc._expr.acceptVisitor(this);
         cc._typename.acceptVisitor(this);
         
-        // TODO look for illegal cast
-
-        cc._type = cc._typename._type;
+        if(!cc._expr._type.canBeCastTo(cc._typename._type)) {
+            env.diag.report(E_ILLEGAL_CAST, cc);
+            cc._type = builder.INVALID_TYPE;
+        } else {
+            cc._type = cc._typename._type;
+        }
     }
 
     public void visit(CodeExprConditional cc) {
@@ -681,7 +731,7 @@ public class TypeInferenceVisitor implements CodeVisitor {
         cc._type = builder.INVALID_TYPE;
         
         if(!(cc._test._type instanceof CTypeBooleanSensitive)) {
-            env.diag.report(E_EXPR_CANT_GO_BOOL, cc._test);
+            env.diag.report(E_TEST_CANT_GO_BOOL, cc._test);
             return;
         }
         

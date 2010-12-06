@@ -584,8 +584,10 @@ public class C {
     	public void acceptVisitor(CodeVisitor v) { v.visit(this); }
     }
     static public class CodeStatCase extends CodeStat {
-    	public CodeExpr _value;
-    	public CodeStat _stat;
+    	
+        public CodeExpr        _value;
+    	public CodeStat        _stat;
+    	public CodeStatSwitch  _switch;
     	
     	CodeStatCase(CodeExpr value, CodeStat stat) 
     	{ _value = value; _stat = stat; }
@@ -617,9 +619,13 @@ public class C {
     	
     	public void acceptVisitor(CodeVisitor v) { v.visit(this); }
     }
-    static public class CodeStatDo extends CodeStat {
-    	public CodeExpr _test;
-    	public CodeStat _stat;
+    
+    static abstract public class CodeStatTestable extends CodeStat {
+        public CodeExpr _test;
+        public CodeStat _stat;
+    }
+    
+    static public class CodeStatDo extends CodeStatTestable {
     	
     	CodeStatDo(CodeExpr test, CodeStat stat) 
     	{ _test = test; _stat = stat; }
@@ -636,13 +642,12 @@ public class C {
     
     	public void acceptVisitor(CodeVisitor v) { v.visit(this); }
     }
-    static public class CodeStatFor extends CodeStat {
-    	public CodeExpr _optInit, _optTest, _optStep;
-    	public CodeStat _stat;
+    static public class CodeStatFor extends CodeStatTestable {
+    	public CodeExpr _optInit, _optStep;
     	
     	CodeStatFor(CodeExpr optInit, CodeExpr optTest, CodeExpr optStep, 
     			     CodeStat stat) 
-    	{ _optInit = optInit; _optTest = optTest; _optStep = optStep; _stat = stat; }
+    	{ _optInit = optInit; _test = optTest; _optStep = optStep; _stat = stat; }
     	
     	public void acceptVisitor(CodeVisitor v) { v.visit(this); }
     }
@@ -653,15 +658,13 @@ public class C {
     	
     	public void acceptVisitor(CodeVisitor v) { v.visit(this); }
     }
-    static public class CodeStatIf extends CodeStat {
-    	public CodeExpr _test;
-    	public CodeStat _thstat;
+    static public class CodeStatIf extends CodeStatTestable {
     	public CodeStat _optElstat;
     	
     	CodeStatIf(CodeExpr test, CodeStat thstat, CodeStat optElstat) 
     	{ 
     	    _test = test; 
-    	    _thstat = thstat; 
+    	    _stat = thstat; 
     	    _optElstat = optElstat;
 	    }   
     	
@@ -682,7 +685,8 @@ public class C {
     	public void acceptVisitor(CodeVisitor v) { v.visit(this); }
     }
     static public class CodeStatReturn extends CodeStat {
-    	public CodeExpr _optExpr;
+    	public CodeExpr        _optExpr;
+    	public CodeFunction    _func;
     	
     	CodeStatReturn(CodeExpr optExpr) { 
     	    _optExpr = optExpr;
@@ -702,9 +706,7 @@ public class C {
     	
     	public void acceptVisitor(CodeVisitor v) { v.visit(this); }
     }
-    static public class CodeStatWhile extends CodeStat {
-    	public CodeExpr _test;
-    	public CodeStat _stat;
+    static public class CodeStatWhile extends CodeStatTestable {
     	
     	CodeStatWhile(CodeExpr test, CodeStat stat)
     	{ 

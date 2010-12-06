@@ -51,6 +51,15 @@ public abstract class CType {
 		return this;
 	}
 	
+	public boolean breaksConstCorrectness(CType that) {
+	    return (
+            _isVolatile && !that._isVolatile
+         || _isConst && that._isVolatile
+         || _isVolatile && that._isConst
+         || _isConst && !that._isConst
+        );
+	}
+	
 	// TODO
 	abstract public boolean canBeAssignedTo(CType that);
 	
@@ -134,7 +143,7 @@ public abstract class CType {
 
         @Override
         public boolean canBeAssignedTo(CType that) {
-            return (
+            return !breaksConstCorrectness(that) && (
                 this._id == that._id
              || (that instanceof CTypeIntegral /* && (_signed == ((CTypeIntegral) that)._signed)*/ )
              //|| (that instanceof CTypeFloating) 
@@ -143,7 +152,8 @@ public abstract class CType {
 
         @Override
         public boolean canBeCastTo(CType that) {
-            return (
+            return that instanceof CTypePointing 
+                || !breaksConstCorrectness(that) && (
                 canBeAssignedTo(that) || (that instanceof CTypePointing)
             );
         }
@@ -172,7 +182,7 @@ public abstract class CType {
     public static abstract class CTypeFloating extends CTypeArithmetic {
         @Override
         public boolean canBeAssignedTo(CType that) {
-            return (
+            return !breaksConstCorrectness(that) && (
                 this._id == that._id
              || that instanceof CTypeIntegral
              || that instanceof CTypeFloating
@@ -280,7 +290,7 @@ public abstract class CType {
 
         @Override
         public boolean canBeAssignedTo(CType that) {
-            return (that instanceof CTypeVoid);
+            return !breaksConstCorrectness(that) && (that instanceof CTypeVoid);
         }
 
         @Override
@@ -421,6 +431,7 @@ public abstract class CType {
         }
         @Override
         public boolean canBeAssignedTo(CType that) {
+            
             if(that instanceof CTypeFunction) {
                 CTypeFunction func = (CTypeFunction) that;
                 if(this._id == that._id) {
@@ -436,7 +447,7 @@ public abstract class CType {
                         }
                     }
                 }
-                return true;
+                return !breaksConstCorrectness(that);
             }
             return false;
         }
