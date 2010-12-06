@@ -37,29 +37,21 @@ public class TypeInferenceVisitor implements CodeVisitor {
     private CTypeBuilder builder;
     private CTypePrinter printer;
     
-    private CTypeArithmetic CHAR_TYPE;
-    private CTypeArithmetic INT_TYPE;
-    private CTypeIntegral UNSIGNED_INT_TYPE;
-    private CTypeArithmetic LONG_INT_TYPE;
-    private CTypeArithmetic DOUBLE_TYPE;
-    private CTypePointing VOID_POINTER_TYPE;
-    private CType POINTER_DIFF_TYPE;
+    private static CTypeArithmetic CHAR_TYPE;
+    private static final CTypeArithmetic INT_TYPE;
+    private static CTypeIntegral UNSIGNED_INT_TYPE;
+    private static CTypeArithmetic LONG_INT_TYPE;
+    private static CTypeArithmetic DOUBLE_TYPE;
+    private static CTypePointing VOID_POINTER_TYPE;
+    private static CType POINTER_DIFF_TYPE;
     
-    private CodeExpr NULL_POINTER;
-    private CodeExpr ZERO_INT;
-    private CodeExpr ZERO_FLOAT;
+    private static CodeExpr NULL_POINTER;
+    private static CodeExpr ZERO_INT;
+    private static CodeExpr ZERO_FLOAT;
     
-    private LinkedList<CodeStatSwitch> switch_stack = new LinkedList<CodeStatSwitch>(); 
+    private final CType INVALID_TYPE;
     
-    // are we inside a compound type?
-    private int compound_count = 0;
-    private int func_decl_count = 0;
-    
-    public TypeInferenceVisitor(Env ee) {
-        env = ee;
-        builder = new CTypeBuilder(ee);
-        printer = new CTypePrinter(System.out);
-        
+    static {
         // basic types used in substitution expressions
         CHAR_TYPE = new CTypeChar();
         INT_TYPE = new CTypeInt();
@@ -82,13 +74,29 @@ public class TypeInferenceVisitor implements CodeVisitor {
         UNSIGNED_INT_TYPE._signed = -1;
     }
     
+    private LinkedList<CodeStatSwitch> switch_stack = new LinkedList<CodeStatSwitch>(); 
+    
+    // are we inside a compound type?
+    private int compound_count = 0;
+    private int func_decl_count = 0;
+    
+    public TypeInferenceVisitor(Env ee) {
+        env = ee;
+        builder = new CTypeBuilder(ee);
+        printer = new CTypePrinter(System.out);
+        
+        
+        
+        INVALID_TYPE = builder.INVALID_TYPE;
+    }
+    
     /**
      * Create code to be substituted into the parse tree that will perform
      * the needed conversion to go pointer -> boolean context (int).
      * @param expr
      * @return
      */
-    private CodeExpr pointerToBool(CodeExpr expr) {
+    private static CodeExpr pointerToBool(CodeExpr expr) {
         CodeExpr ret = new CodeExprInfix(
             new CTokenOperator(CTokenType.NOT_EQUALS),
             expr._type instanceof CTypeFunctionPointer 
@@ -106,7 +114,7 @@ public class TypeInferenceVisitor implements CodeVisitor {
      * @param expr
      * @return
      */
-    private CodeExpr floatToBool(CodeExpr expr) {
+    private static CodeExpr floatToBool(CodeExpr expr) {
         
         CodeExpr ret = new CodeExprInfix(
             new CTokenOperator(CTokenType.NOT_EQUALS),
@@ -126,7 +134,7 @@ public class TypeInferenceVisitor implements CodeVisitor {
      * @param expr
      * @return
      */
-    private CodeExpr exprToBool(CodeExpr expr) {
+    private static CodeExpr exprToBool(CodeExpr expr) {
         if(expr._type instanceof CTypeFloating) {
             return floatToBool(expr);
         } else if(expr._type instanceof CTypePointing) {
@@ -145,7 +153,7 @@ public class TypeInferenceVisitor implements CodeVisitor {
      * @param type
      * @return
      */
-    private CodeExpr castTo(CodeExpr expr, CType type) {
+    private static CodeExpr castTo(CodeExpr expr, CType type) {
         
         CodeExpr ret = new CodeExprCast(type, expr);
         ret._type = type;
@@ -549,38 +557,37 @@ public class TypeInferenceVisitor implements CodeVisitor {
             // set the type of the id
             CodeId id = dtor.getOptId();
             
+            // set before we explore the declarator so that we have the
+            // type of the id if we have an initializer
             if(null != id) {
-                
                 id._type = dtor._type;
                 id._type._isAddressable = true;
-                
-                // makes sure we don't try to use function types unless they
-                // are function pointers
-                if(!dtor._is_typedef) {
-                    
-                    if(id._type instanceof CTypeFunction
-                    && 0 != compound_count) {
-                        env.diag.report(E_SYMBOL_FUNC_TYPE, id);
-                        id._type = builder.INVALID_TYPE;
-                    }
-                }
-                
-                // make sure that if we're declaring a one-dimensional
-                // array that it has a complete type.
-                if(id._type instanceof CTypeArray) {
-                    CTypeArray arr_t = (CTypeArray) id._type;
-                    
-                    if(/*!(arr_t._pointeeType instanceof CTypeArray)
-                    && */ null == arr_t._optSize
-                    && 0 == func_decl_count) {
-                        env.diag.report(E_INCOMPLETE_ARRAY, id);
-                        id._type = builder.INVALID_TYPE;
-                    }
-                }
             }
             
             // we need to check the type of constant expressions
             dtor.acceptVisitor(this);
+                        
+            if(null != id) {
+                
+                // make sure that if we're declaring a one-dimensional
+                // array that it has a complete type.
+                if(id._type instanceof CTypeArray
+                && 0 == func_decl_count) {
+                    CTypeArray arr_t = (CTypeArray) id._type;
+                    
+                    if(null == arr_t._optSize) {
+                        env.diag.report(E_INCOMPLETE_ARRAY, id);
+                        id._type = builder.INVALID_TYPE;
+                    }
+                }
+                
+                if(id._type instanceof CTypeFunction) {
+                    env.diag.report(E_SYMBOL_FUNC_TYPE, cc);
+                    id._type = builder.INVALID_TYPE;
+                }
+                
+                dtor._type = id._type;
+            }
             
             printer.print(dtor._type);
         }
@@ -743,10 +750,111 @@ public class TypeInferenceVisitor implements CodeVisitor {
         if(id._type instanceof CTypeFunction) {
             env.diag.report(E_SYMBOL_FUNC_TYPE, cc);
             id._type = builder.INVALID_TYPE;
-       
-        // don't let us assign a value of a bad type
-        } else if(!cc._initializer._type.canBeAssignedTo(id._type)) {
-            env.diag.report(E_ASSIGN_INITIAL, id);
+            return;
+        }
+        
+        System.out.println(id._type);
+        
+        if(id._type instanceof CTypeArray) {
+            
+            
+            
+            if(!(cc._initializer instanceof CodeInitializerList)) {
+                env.diag.report(E_INIT_ARRAY_WITHOUT_LIST, cc);
+                id._type = builder.INVALID_TYPE;
+                return;
+            }
+            
+            final CType expected_type = id._type.getInternalType();
+            final CType got_type = cc._initializer._type.getInternalType();
+            
+            // bad internal type in the array
+            if(!got_type.canBeAssignedTo(expected_type)) {
+                env.diag.report(E_INVALID_INIT_LIST_TYPE, cc);
+                id._type = builder.INVALID_TYPE;
+                return;
+            }
+            
+            final CTypeArray arr_t = (CTypeArray) id._type;
+
+            // the array has an incomplete type
+            if(null == arr_t._optSize) {
+                
+                arr_t._optSize = new CTypeConstExpr(
+                    new CodeIntegerConstant(-1) /* evil! */
+                );
+                
+                env.addPhase(new ParseTreeNodePhase(cc) {
+                    public boolean apply(Env env, Code code) {
+                        CodeDeclaratorInit cc = (CodeDeclaratorInit) node;
+                        CodeInitializerList ls = (CodeInitializerList) cc._initializer;
+                        CodeId id = cc.getOptId();
+                        
+                        int mult = -1 * arr_t.sizeOf(env) / expected_type.sizeOf(env);
+                        int ls_len = ls._list.size();
+                        
+                        CodeIntegerConstant dim = (CodeIntegerConstant)(
+                            ((CTypeArray) id._type)._optSize._expr
+                        );
+                        
+                        if(0 != (ls_len % mult)) {
+                            env.diag.report(E_INIT_LIST_NOT_DIVISIBLE, ls);
+                            id._type = INVALID_TYPE;
+                            return false;
+                            
+                        // properly complete the type
+                        } else {
+                            ((CompileTimeInteger) dim._const_val).value = ls_len / mult;
+                        }
+                        
+                        return true;
+                    }
+                });
+            
+            // the array has complete type, we will need to check the
+            // dimensions of the list when we've actually computed the
+            // array's size
+            } else {
+                
+                env.addPhase(new ParseTreeNodePhase(cc) {
+                    public boolean apply(Env env, Code code) {
+                        CodeDeclaratorInit cc = (CodeDeclaratorInit) node;
+                        CodeInitializerList ls = (CodeInitializerList) cc._initializer;
+                        CodeId id = cc.getOptId();
+                        
+                        int mult = arr_t.sizeOf(env) / expected_type.sizeOf(env);
+                        int ls_len = ls._list.size();
+                        
+                        CodeIntegerConstant dim = (CodeIntegerConstant)(
+                            ((CTypeArray) id._type)._optSize._expr
+                        );
+                        
+                        if(ls_len > mult) {
+                            env.diag.report(E_INIT_LIST_TOO_LONG, ls);
+                            id._type = INVALID_TYPE;
+                            return false;
+                        
+                        // fill in zeros if possible
+                        } else if(ls_len < mult) {
+                            if(!INT_TYPE.canBeAssignedTo(got_type)) {
+                                env.diag.report(E_INIT_LIST_AUTO, ls);
+                                id._type = INVALID_TYPE;
+                                return false;
+                            }
+                            
+                            // add in the zeros
+                            for(int i = 0; i < mult - ls_len; ++i) {
+                                ls._list.add(new CodeInitializerValue(
+                                    castTo(ZERO_INT, got_type)
+                                ));
+                            }
+                        }
+                        
+                        return true;
+                    }
+                });
+                
+            }
         }
     }
 
@@ -788,11 +896,39 @@ public class TypeInferenceVisitor implements CodeVisitor {
 
     public void visit(CodeInitializerList cc) {
         CodeInitializer last = null;
+        
+        // check the types of the initializers
         for(CodeInitializer init : cc._list) {
             init.acceptVisitor(this);
+            
+            if(null != last) {
+                if(!last._type.canBeAssignedTo(init._type)) {
+                    env.diag.report(E_INVALID_INIT_LIST_TYPE, init);
+                    cc._type = builder.INVALID_TYPE;
+                    return;
+                }
+            }
+            
             last = init;
         }
-        cc._type = last._type;
+        
+        // interpret all initializer values
+        env.addPhase(new ParseTreeNodePhase(cc) {
+            public boolean apply(Env env, Code code) {
+                CodeInitializerList cc = (CodeInitializerList) node;
+                for(CodeInitializer init : cc._list) {
+                    if(null == env.interpret(init)) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+        });
+        
+        cc._type = new CTypeArray(
+            last._type, 
+            new CTypeConstExpr(new CodeIntegerConstant(cc._list.size()))
+        );
     }
 
     public void visit(CodeStatBreak cc) { }
@@ -967,7 +1103,10 @@ public class TypeInferenceVisitor implements CodeVisitor {
                 // fall-through
                 
             case CTokenType.ASSIGN:
-                if(!rhs_type.canBeAssignedTo(cc._a._type)) {
+                
+                if(!rhs_type.canBeAssignedTo(cc._a._type)
+                || cc._a._type instanceof CTypeArray
+                || orig_a._type instanceof CTypeArray) {
                     env.diag.report(E_CANT_DO_ASSIGNMENT, cc);
                 }
         }

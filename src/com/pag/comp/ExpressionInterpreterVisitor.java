@@ -138,7 +138,8 @@ public class ExpressionInterpreterVisitor implements CodeVisitor {
     }
     
     public void visit(CodeInitializerValue cc) {
-        env.diag.report(E_NON_CONSTANT_EXPR, cc);
+        cc._value.acceptVisitor(this);
+        cc._const_val = cc._value._const_val;
     }
     
     public void visit(CodeInitializerList cc) {

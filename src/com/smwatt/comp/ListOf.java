@@ -33,8 +33,24 @@ class ListOf {
     @SuppressWarnings("serial")
     public static class CCodeDeclarator  extends ArrayList<CodeDeclarator> { }
     
+    
     @SuppressWarnings("serial")
-    public static class CCodeInitializer extends ArrayList<CodeInitializer> { }
+    public static class CCodeInitializer extends ArrayList<CodeInitializer> {
+        
+        // not exactly correct, but simplifies things by collapsing sub-lists
+        // into one top-level list
+        public boolean add(CodeInitializer init) {
+            if(init instanceof CodeInitializerList) {
+                CodeInitializerList ls = (CodeInitializerList) init;
+                for(CodeInitializer sub_i : ls._list) {
+                    super.add(sub_i);
+                }
+                return true;
+            }
+            
+            return super.add(init);
+        }
+    }
     
     @SuppressWarnings("serial")
     public static class CCodeStat        extends ArrayList<CodeStat> { }

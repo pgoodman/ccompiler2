@@ -117,6 +117,12 @@ public enum Message {
     E_ASSIGN_INITIAL        (ERROR,         "Can't initialize variable with expression. The type of the expression is\n    not assignable to the type of the variable."),
     E_CANT_DO_ASSIGNMENT    (ERROR,         "Unable to assign right-hand side of expression to left-hand side."),
     
+    E_INIT_ARRAY_WITHOUT_LIST(ERROR,        "Cannot initialize array without an initializer list."),
+    E_INVALID_INIT_LIST_TYPE(ERROR,         "The type of at least one of the values in the initializer list for this\n    array cannot be assigned into a slot in this array."),
+    E_INIT_LIST_TOO_LONG    (ERROR,         "The initializer list is too long for array type declared."),
+    E_INIT_LIST_NOT_DIVISIBLE(ERROR,        "The length initializer list is not a multiple of the specified dimensions of the array."),
+    E_INIT_LIST_AUTO        (ERROR,         "Can't automatically initialize the missing values in the initializer list."),
+    
     B_BUG                   (BUG,           "The following bug was reported: %%."),;
     
     public final Type type;

@@ -25,6 +25,8 @@ int main(int arr5[][BAR][BAZ], int (*FOO /* expect warning */ )(void *, int BAZ)
     int arr6[BAR][BAZ];
     int arr7["hello"[0]];
     int arr8['h'];
+    int arr9[] = {1, 2, -3};
+    int arr10[][2][2] = {{{1,0},{0,1}},{{1,0},{0,1}},{{1,0},{0,1}},{{1,0},{0,1}}};
 
     /* enum sizes */
     sizeof FOO;
@@ -61,4 +63,6 @@ int main(int arr5[][BAR][BAZ], int (*FOO /* expect warning */ )(void *, int BAZ)
     sizeof arr6; /* expect 10 * 11 * 4 = 440 */
     sizeof arr7; /* expect 416 */
     sizeof arr8; /* expect 416 */
+    sizeof arr9; /* expect 12 */
+    sizeof arr10; /* expect 64 */
 }

@@ -2,7 +2,8 @@ package com.pag.val;
 
 public class CompileTimeInteger implements CompileTimeValue {
     
-    final public int value;
+    // non-final so that we might slot in a value.
+    public int value;
     
     static private CompileTimeInteger cast(CompileTimeValue other) {
         return (CompileTimeInteger) other;

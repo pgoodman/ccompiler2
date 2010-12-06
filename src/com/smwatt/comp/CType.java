@@ -81,6 +81,16 @@ public abstract class CType {
 	    return c;
 	}
 	
+	// get the "internal" type of this type.. this is usually just the type
+	// itself.
+	public CType getInternalType() {
+	    return this;
+	}
+	
+	public void clearSize() {
+	    
+	}
+	
 	// TODO
 	// Returns <code>null</code> if the types do not unify.
 	//abstract public CType unify(CType that);
@@ -259,7 +269,7 @@ public abstract class CType {
 
         @Override
         public int sizeOf(Env e) {
-            return 0;
+            return 1;
         }
 
         @Override
@@ -288,7 +298,7 @@ public abstract class CType {
 
         @Override
         public int sizeOf(Env e) {
-            return 0;
+            return 1;
         }
 
         @Override
@@ -474,6 +484,7 @@ public abstract class CType {
             super();
             _pointeeType = pointeeType;
             _isAddressable = addressable;
+            pointeeType._isAddressable = true;
         }
 
         @Override
@@ -506,6 +517,7 @@ public abstract class CType {
             super();
             _pointeeType = elementType;
             _optSize     = optSize;
+            _pointeeType._isAddressable = true;
         }
         
         public void acceptVisitor(CTypeVisitor v) { v.visit(this); }
@@ -539,12 +551,20 @@ public abstract class CType {
         public CType copy() {
             return super.copy(new CTypeArray(_pointeeType, _optSize));
         }
+        
+        @Override
+        public CType getInternalType() {
+            return _pointeeType.getInternalType();
+        }
     }
     public static class CTypePointer extends CTypePointing implements CTypeAdditive {
         
         public CTypePointer(CType pointeeType) {
             super();
             _pointeeType = pointeeType;
+            
+            // TODO? does this break the func pointer issues?
+            _pointeeType._isAddressable = true;
         }
         
         public static CTypePointing optNew(CType pointeeType) {
@@ -675,7 +695,7 @@ public abstract class CType {
                     E_COMOUND_DEPEND_SIZEOF_SELF,
                     getSomeSourcePosition()
                 );
-                return 0;
+                return 1;
             }
             
             int size = 0;
@@ -807,7 +827,7 @@ public abstract class CType {
     */
     
     public static class CTypeConstExpr {
-        C.CodeExpr _expr;
+        public C.CodeExpr _expr;
         
         public CTypeConstExpr(C.CodeExpr expr) {
             super();

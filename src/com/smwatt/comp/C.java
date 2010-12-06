@@ -557,12 +557,14 @@ public class C {
     	public void acceptVisitor(CodeVisitor v) { v.visit(this); }
     }
     
-    static public abstract class CodeInitializer extends Code {
+    /* bit of a hack */
+    static public abstract class CodeInitializer extends CodeExpr {
     }
+    
     static public class CodeInitializerValue extends CodeInitializer {
     	public CodeExpr _value;
     	
-    	CodeInitializerValue(CodeExpr value) { _value = value; }
+    	public CodeInitializerValue(CodeExpr value) { _value = value; }
     
     	public void acceptVisitor(CodeVisitor v) { v.visit(this); }
     }
