@@ -112,6 +112,10 @@ public enum Message {
     E_CASE_SWITCH_DISAGREE  (ERROR,         "The type of the value in the case statement cannot be compared with the type\n    of the value being switched on at %%."),
     E_SWITCH_ON_ARITHMETIC  (ERROR,         "Can't use switch statement on an expression whose type is non-arithmetic."),
     E_BAD_RETURN_TYPE       (ERROR,         "Type of (possible) expression in return statement does not match the return\n    type of the enclosing function."),
+    E_ASSIGN_TO_CONST       (ERROR,         "Can't assign to an expression whose type is const-qualified."),
+    E_ASSIGN_TO_VALUE       (ERROR,         "Can't assign to an expression that evaluates into a value (rather than an\n    addressable location in memory)."),
+    E_ASSIGN_INITIAL        (ERROR,         "Can't initialize variable with expression. The type of the expression is\n    not assignable to the type of the variable."),
+    E_CANT_DO_ASSIGNMENT    (ERROR,         "Unable to assign right-hand side of expression to left-hand side."),
     
     B_BUG                   (BUG,           "The following bug was reported: %%."),;
     

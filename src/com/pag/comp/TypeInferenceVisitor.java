@@ -222,607 +222,15 @@ public class TypeInferenceVisitor implements CodeVisitor {
         }
     }
     
-    public void visit(Code cc) {
-        cc.acceptVisitor(this);
-    }
-
-    public void visit(CodeUnit cc) {
-        for(Code code : cc._l) {
-            code.acceptVisitor(this);
-        }
-    }
-
-    
-    
-    public void visit(CodeFunction cc) {
-        
-        CodeId id = cc._head.getOptId();
-        
-        // assume the worst
-        id._type = builder.INVALID_TYPE;
-        cc._type = builder.INVALID_TYPE;
-        
-        boolean has_old_style_decls = false;
-        Hashtable<String, CType> params = new Hashtable<String, CType>();
-        
-        ++func_decl_count;
-        
-        // handle old-style function declarators. they can be in any order
-        // so we will consider them first.
-        for(CodeDeclaration decl : cc._ldecl) {
-            for(CodeDeclarator dtor : decl._ldtor) {
-                
-                if(null == dtor) {
-                    continue;
-                }
-                
-                has_old_style_decls = true;
-                
-                CType arg_type = builder.formType(decl._lspec, dtor);
-                dtor._type = arg_type;
-                
-                CodeId param_id = dtor.getOptId();
-                
-                if(null != param_id) {
-                    param_id._type = dtor._type;
-                    param_id._type._isAddressable = true;
-                    
-                    // add the type in
-                    params.put(param_id._s, param_id._type);
-                }
-                
-                dtor.acceptVisitor(this);
-            }
-        }
-        --func_decl_count;
-        
-        cc._type = builder.formType(cc._lspec, cc._head);
-        id._type = cc._type;
-        
-        if(!(cc._type instanceof CTypeFunction)) {
-            env.diag.report(E_INVALID_TYPE, cc);
-            return;
-        }
-        
-        CTypeFunction tt = (CTypeFunction) cc._type;
-        
-        CodeDeclaratorFunction func = (CodeDeclaratorFunction) cc._head;
-        for(Code code : func._argl) {
-            
-            // make sure we're not mixing things
-            if(code instanceof CodeDeclaration) {
-                if(has_old_style_decls) {
-                    env.diag.report(E_FUNC_MIX_DECLS, cc);
-                    return;
-                }
-                
-                code.acceptVisitor(this);                
-            
-            // get the types in the right order
-            } else if(code instanceof CodeId) {
-                CodeId param_id = (CodeId) code;
-                CType param_type = params.get(param_id._s);
-                tt._argTypes.add(param_type);
-                code._type = param_type;
-            }
-        }
-        
-        if(Env.DEBUG) {
-            System.out.print("DEBUG: " + id.getSourcePosition().toString());
-            printer.print(id._type);
-        }
-        
-        cc._body.acceptVisitor(this);
-    }
-
-    public void visit(CodeDeclaration cc) {
-        for(CodeDeclarator dtor : cc._ldtor) {
-            
-            if(null == dtor) {
-                continue;
-            }
-            
-            CType arg_type = builder.formType(cc._lspec, dtor);
-            dtor._type = arg_type;
-            
-            // set the type of the id
-            CodeId id = dtor.getOptId();
-            
-            if(null != id) {
-                
-                id._type = dtor._type;
-                id._type._isAddressable = true;
-                
-                // makes sure we don't try to use function types unless they
-                // are function pointers
-                if(!dtor._is_typedef) {
-                    
-                    if(id._type instanceof CTypeFunction
-                    && 0 != compound_count) {
-                        env.diag.report(E_SYMBOL_FUNC_TYPE, id);
-                        id._type = builder.INVALID_TYPE;
-                    }
-                }
-                
-                // make sure that if we're declaring a one-dimensional
-                // array that it has a complete type.
-                if(id._type instanceof CTypeArray) {
-                    CTypeArray arr_t = (CTypeArray) id._type;
-                    
-                    if(!(arr_t._pointeeType instanceof CTypeArray)
-                    && null == arr_t._optSize
-                    && 0 == func_decl_count) {
-                        env.diag.report(E_INCOMPLETE_ARRAY, id);
-                        id._type = builder.INVALID_TYPE;
-                    }
-                }
-            }
-            
-            // we need to check the type of constant expressions
-            dtor.acceptVisitor(this);
-            
-            printer.print(dtor._type);
-        }
-        
-        // we need to check the type of constant expressions (e.g. in
-        // enums, array dimensions, etc.
-        for(CodeSpecifier spec : cc._lspec) {
-            spec.acceptVisitor(this);
-        }
-        
-        // make sure we can typecheck specifiers even in the absence of
-        // a declarator
-        if(cc._ldtor.isEmpty()) {
-            cc._type = builder.formTypeFromSpecifiers(cc._lspec);
-        }
-    }
-
-    public void visit(CodeId cc) { }
-
-    public void visit(CodeTypeName cc) {
-        for(CodeSpecifier spec : cc._lspec) {
-            spec.acceptVisitor(this);
-        }
-        if(null != cc._dtor) {
-            cc._dtor.acceptVisitor(this);
-        }
-        cc._type = builder.formType(cc._lspec, cc._dtor);
-    }
-
-    public void visit(CodeString cc) {
-        
-        // add in the null-terminating character.
-        cc._s = cc._s + '\0';
-        
-        // this ensures that the string will have the right dimension
-        // for the sizeof operator.
-        cc._type = new CTypeArray(
-            CHAR_TYPE, new CTypeConstExpr(
-                new CodeIntegerConstant(cc._s.length())
-            )
-        );
-        
-        // set up the behaviour of this constant
-        ((CTypeArray) cc._type)._pointeeType._isConst = true;
-        cc._type._isAddressable = true;
-        
-        cc._const_val = cc._s;
-    }
-
-    public void visit(CodeCharacterConstant cc) {
-        cc._type = CHAR_TYPE;
-        cc._type._isConst = true;
-        char[] as_array = cc._s.toCharArray();
-        cc._const_val = new Integer(as_array[0]);
-    }
-
-    public void visit(CodeIntegerConstant cc) {
-        cc._type = new CTypeInt();
-        cc._type._isConst = true;
-        cc._const_val = Integer.valueOf(cc._s);
-    }
-
-    public void visit(CodeFloatingConstant cc) {
-        cc._type = new CTypeDouble();
-        cc._type._isConst = true;
-        cc._const_val = Double.valueOf(cc._s);
-    }
-
-    public void visit(CodeEnumerationConstant cc) {
-        cc._type = cc._scope.get(cc._s, Type.ENUMERATOR).code._type;
-        cc._type._isConst = true;
-    }
-
-    public void visit(CodeDotDotDot cc) { }
-
-    public void visit(CodeSpecifierStorage cc) { }
-
-    public void visit(CodeSpecifierQualifier cc) { }
-
-    public void visit(CodeSpecifierType cc) { }
-
-    public void visit(CodeSpecifierTypedefName cc) { }
-
-    public void visit(CodeSpecifierStruct cc) {
-        ++compound_count;
-        if(null != cc._optParts) {
-            for(Code part : cc._optParts) {
-                part.acceptVisitor(this);
-            }
-        }
-        --compound_count;
-    }
-
-    public void visit(CodeSpecifierUnion cc) {
-        ++compound_count;
-        if(null != cc._optParts) {
-            for(Code part : cc._optParts) {
-                part.acceptVisitor(this);
-            }
-        }
-        --compound_count;
-    }
-
-    public void visit(CodeSpecifierEnum cc) {
-        if(null != cc._optParts) {
-            for(Code part : cc._optParts) {
-                part.acceptVisitor(this);
-            }
-        }
-    }
-
-    public void visit(CodeEnumerator cc) {
-        if(null != cc._optValue) {
-            cc._optValue.acceptVisitor(this);
-            
-            if(!(cc._optValue._type instanceof CTypeIntegral)) {
-                env.diag.report(E_ENUMERATOR_INTEGRAL, cc);
-            }
-        }
-    }
-    
-    public void visit(CodeDeclaratorParen cc) {
-        cc._decl.acceptVisitor(this);
-    }
-
-    public void visit(CodeDeclaratorArray cc) {
-        if(null != cc._optIndex) {
-            cc._optIndex.acceptVisitor(this);
-            
-            if(!(cc._optIndex._type instanceof CTypeIntegral)) {
-                env.diag.report(E_ARRAY_DIM_INTEGRAL, cc._optIndex);
-            }
-        }
-        
-        if(null != cc._optAr) {
-            cc._optAr.acceptVisitor(this);
-        }
-    }
-
-    public void visit(CodeDeclaratorFunction cc) {
-        ++func_decl_count;
-        cc._optFn.acceptVisitor(this);
-        
-        if(null != cc._argl) {
-            for(Code arg : cc._argl) {
-                if(null != arg) {
-                    arg.acceptVisitor(this);
-                }
-            }
-        }
-        --func_decl_count;
-    }
-
-    public void visit(CodeDeclaratorInit cc) {
-        cc._initializer.acceptVisitor(this);
-        cc._dtor.acceptVisitor(this);
-        
-        // don't let us initialize a function type
-        CodeId id = cc._dtor.getOptId();
-        if(id._type instanceof CTypeFunction) {
-            env.diag.report(E_SYMBOL_FUNC_TYPE, cc);
-            id._type = builder.INVALID_TYPE;
-        }
-        
-        // TODO check value type
-    }
-
-    public void visit(CodeDeclaratorPointer cc) {
-        if(null != cc._optPointee) {
-            cc._optPointee.acceptVisitor(this);
-        }
-        cc._star.acceptVisitor(this);
-    }
-
-    public void visit(CodeDeclaratorWidth cc) {
-        if(null != cc._dtor) {
-            cc._dtor.acceptVisitor(this);
-        }
-        cc._width.acceptVisitor(this);
-        
-        if(!(cc._width._type instanceof CTypeIntegral)) {
-            env.diag.report(E_FIELD_WIDTH_INTEGRAL, cc._width);
-        }
-    }
-
-    public void visit(CodeDeclaratorId cc) {
-        //cc._id._type._isAddressable = true;
-    }
-
-    public void visit(CodePointerStar cc) {
-        if(null != cc._optStar) {
-            cc._optStar.acceptVisitor(this);
-        }
-        for(CodeSpecifier spec : cc._lspec) {
-            spec.acceptVisitor(this);
-        }
-    }
-
-    public void visit(CodeInitializerValue cc) {
-        cc._value.acceptVisitor(this);
-        cc._type = cc._value._type;
-    }
-
-    public void visit(CodeInitializerList cc) {
-        CodeInitializer last = null;
-        for(CodeInitializer init : cc._list) {
-            init.acceptVisitor(this);
-            last = init;
-        }
-        cc._type = last._type;
-    }
-
-    public void visit(CodeStatBreak cc) { }
-
-    public void visit(CodeStatCase cc) {
-        cc._value.acceptVisitor(this);
-        cc._switch = switch_stack.peek();
-        
-        // bad type for case
-        if(!cc._switch._expr._type.canBeAssignedTo(cc._value._type)) {
-            env.diag.report(
-                E_CASE_SWITCH_DISAGREE, 
-                cc, cc._switch._expr.getSourcePosition().toString()
-            );
-        
-        // make sure that the case expression can be evaluated at compile
-        // time
-        } else {
-        
-            env.addPhase(new ParseTreeNodePhase(cc) {
-    
-                public boolean apply(Env env, Code code) {
-                    // TODO Auto-generated method stub
-                    return false;
-                }
-            });
-        }
-        
-        cc._stat.acceptVisitor(this);
-    }
-
-    public void visit(CodeStatCompound cc) {
-        for(CodeDeclaration decl : cc._ldecl) {
-            decl.acceptVisitor(this);
-        }
-        for(CodeStat stat : cc._lstat) {
-            stat.acceptVisitor(this);
-        }
-    }
-
-    public void visit(CodeStatContinue cc) { }
-
-    public void visit(CodeStatDefault cc) {
-        cc._stat.acceptVisitor(this);
-    }
-
-    public void visit(CodeStatDo cc) {
-        cc._stat.acceptVisitor(this);
-        cc._test.acceptVisitor(this);
-        checkTest(cc);
-    }
-
-    public void visit(CodeStatExpression cc) {
-        if(null != cc._optExpr) {
-            cc._optExpr.acceptVisitor(this);
-            cc._type = cc._optExpr._type;
-        } else {
-            cc._type = new CTypeVoid();
-        }
-    }
-
-    public void visit(CodeStatFor cc) {
-        
-        if(null != cc._optInit) {
-            cc._optInit.acceptVisitor(this);
-        }
-        
-        if(null != cc._test) {
-            cc._test.acceptVisitor(this);
-            checkTest(cc);
-        }
-        
-        if(null != cc._optStep) {
-            cc._optStep.acceptVisitor(this);
-        }
-        
-        cc._stat.acceptVisitor(this);
-    }
-
-    public void visit(CodeStatGoto cc) { }
-
-    public void visit(CodeStatIf cc) {
-        cc._test.acceptVisitor(this);
-        cc._stat.acceptVisitor(this);
-        
-        checkTest(cc);
-        
-        if(null != cc._optElstat) {
-            cc._optElstat.acceptVisitor(this);
-        }
-    }
-
-    public void visit(CodeStatLabeled cc) {
-        cc._stat.acceptVisitor(this);
-    }
-
-    public void visit(CodeStatReturn cc) {
-        
-        if(null != cc._optExpr) {
-            cc._optExpr.acceptVisitor(this);
-            cc._type = cc._optExpr._type;
-        } else {
-            cc._type = new CTypeVoid();
-        }
-        
-        // make sure the return types are okay
-        if(!cc._type.canBeAssignedTo(((CTypeFunction) cc._func._type)._retType)) {
-            
-        }
-    }
-
-    public void visit(CodeStatSwitch cc) {
-        switch_stack.push(cc);
-        cc._expr.acceptVisitor(this);
-        
-        // check the test type
-        if(!(cc._expr._type instanceof CTypeArithmetic)) {
-            env.diag.report(E_SWITCH_ON_ARITHMETIC, cc._expr);
-            cc._expr._type = builder.INVALID_TYPE;
-        }
-        
-        cc._stat.acceptVisitor(this);
-        switch_stack.pop();
-    }
-
-    public void visit(CodeStatWhile cc) {
-        cc._test.acceptVisitor(this);
-        
-        checkTest(cc);
-        
-        cc._stat.acceptVisitor(this);
-    }
-
-    public void visit(CodeExprAssignment cc) {
-        // TODO check type of RHS against expected type of LHS
-        cc._a.acceptVisitor(this);
-        cc._b.acceptVisitor(this);
-        
-        cc._type = cc._a._type;
-    }
-
-    public void visit(CodeExprCast cc) {
-        cc._expr.acceptVisitor(this);
-        cc._typename.acceptVisitor(this);
-        
-        if(!cc._expr._type.canBeCastTo(cc._typename._type)) {
-            env.diag.report(E_ILLEGAL_CAST, cc);
-            cc._type = builder.INVALID_TYPE;
-        } else {
-            cc._type = cc._typename._type;
-        }
-    }
-
-    public void visit(CodeExprConditional cc) {
-        cc._test.acceptVisitor(this);
-        cc._a.acceptVisitor(this);
-        cc._b.acceptVisitor(this);
-        
-        cc._type = builder.INVALID_TYPE;
-        
-        if(!(cc._test._type instanceof CTypeBooleanSensitive)) {
-            env.diag.report(E_TEST_CANT_GO_BOOL, cc._test);
-            return;
-        }
-        
-        cc._test = exprToBool(cc._test);
+        /**
+     * Check the type of an infix expression.
+     * @param tok_type
+     * @param cc
+     */
+    public void checkInfixExpr(int tok_type, CodeExprInfix cc) {
         
         CType ta = cc._a._type;
         CType tb = cc._b._type;
-        
-        // check that we can assign one of the types to the other
-        if(!ta.canBeCastTo(tb) || !tb.canBeCastTo(ta)) {
-            env.diag.report(E_BAD_OP_FOR_TYPE, cc, "conditional");
-            return;
-        }
-        
-        // both are pointers
-        if(ta instanceof CTypePointing 
-        && tb instanceof CTypePointing) {
-            
-            CTypePointing ptr_a_t = (CTypePointing) ta;
-            CTypePointing ptr_b_t = (CTypePointing) tb;
-            
-            // can inherit the specifiers and become both const and volatile
-            if(ptr_a_t._isVolatile && ptr_b_t._isConst
-            || ptr_a_t._isConst && ptr_b_t._isVolatile) {
-                env.diag.report(E_MULTI_QUALIFIER, cc);
-                return;
-            }
-            
-            // make one side void *
-            if(ptr_a_t._pointeeType instanceof CTypeVoid
-            && !(ptr_b_t._pointeeType instanceof CTypeVoid)) {
-                
-                cc._b = castTo(cc._b, VOID_POINTER_TYPE);
-                tb = cc._b._type;
-            
-            // make the other size void *
-            } else if(!(ptr_a_t._pointeeType instanceof CTypeVoid)
-                   && ptr_b_t._pointeeType instanceof CTypeVoid) {
-                
-                cc._a = castTo(cc._a, VOID_POINTER_TYPE);
-                ta = cc._a._type;
-            
-            // can't assign, so die
-            } else if(!ta.canBeAssignedTo(tb) || !tb.canBeAssignedTo(ta)) {
-                env.diag.report(E_BAD_OP_FOR_TYPE, cc, "conditional");
-                return;
-            }
-            
-            // create the type and merge the properties of both
-            cc._type = ta.copy();
-            
-        
-        // both are arithmetic, do the basic conversions
-        } else if(ta instanceof CTypeArithmetic 
-               && tb instanceof CTypeArithmetic) {
-            
-            binaryOpMeetFloats(cc);
-            binaryOpMeetTypes(cc);
-            cc._type = cc._a._type.copy();
-            
-        // can't assign, so die
-        } else if(!ta.canBeAssignedTo(tb) || !tb.canBeAssignedTo(ta)) {
-            env.diag.report(E_BAD_OP_FOR_TYPE, cc, "conditional");
-            return;
-            
-        } else {
-            
-            cc._type = ta.copy();
-        }
-        
-        cc._type._isAddressable = cc._type._isAddressable && tb._isAddressable;
-        cc._type._isConst = cc._type._isConst || tb._isConst;
-        cc._type._isVolatile = cc._type._isVolatile || tb._isVolatile;
-    }
-
-    public void visit(CodeExprInfix cc) {
-        cc._a.acceptVisitor(this);
-        cc._b.acceptVisitor(this);
-        
-        cc._type = builder.INVALID_TYPE;
-        
-        CType ta = cc._a._type;
-        CType tb = cc._b._type;
-        
-        final int tok_type = cc._op._type;
-        
-        // comma operator is easiest to deal with :D
-        if(CTokenType.COMMA == cc._op._type) {
-            cc._type = cc._b._type;
-            return;
-        }
         
         // step 1: fail fast on relational operators
         switch(tok_type) {
@@ -836,7 +244,7 @@ public class TypeInferenceVisitor implements CodeVisitor {
                 if(!(ta instanceof CTypeComparable)
                 || !(tb instanceof CTypeComparable)) {
                     env.diag.report(E_TYPES_NOT_COMPARABLE, cc);
-                    return;
+                    return ;
                 }
                 
                 // the types are comparable, let's make sure that one
@@ -1030,6 +438,651 @@ public class TypeInferenceVisitor implements CodeVisitor {
                 cc._type = INT_TYPE.copy();
                 cc._type._isAddressable = false;
         }
+    }
+    
+    public void visit(Code cc) {
+        cc.acceptVisitor(this);
+    }
+
+    public void visit(CodeUnit cc) {
+        for(Code code : cc._l) {
+            code.acceptVisitor(this);
+        }
+    }
+    
+    public void visit(CodeFunction cc) {
+        
+        CodeId id = cc._head.getOptId();
+        
+        // assume the worst
+        id._type = builder.INVALID_TYPE;
+        cc._type = builder.INVALID_TYPE;
+        
+        boolean has_old_style_decls = false;
+        Hashtable<String, CType> params = new Hashtable<String, CType>();
+        
+        ++func_decl_count;
+        
+        // handle old-style function declarators. they can be in any order
+        // so we will consider them first.
+        for(CodeDeclaration decl : cc._ldecl) {
+            for(CodeDeclarator dtor : decl._ldtor) {
+                
+                if(null == dtor) {
+                    continue;
+                }
+                
+                has_old_style_decls = true;
+                
+                CType arg_type = builder.formType(decl._lspec, dtor);
+                dtor._type = arg_type;
+                
+                CodeId param_id = dtor.getOptId();
+                
+                if(null != param_id) {
+                    param_id._type = dtor._type;
+                    param_id._type._isAddressable = true;
+                    
+                    // add the type in
+                    params.put(param_id._s, param_id._type);
+                }
+                
+                dtor.acceptVisitor(this);
+            }
+        }
+        --func_decl_count;
+        
+        cc._type = builder.formType(cc._lspec, cc._head);
+        id._type = cc._type;
+        
+        if(!(cc._type instanceof CTypeFunction)) {
+            env.diag.report(E_INVALID_TYPE, cc);
+            return;
+        }
+        
+        CTypeFunction tt = (CTypeFunction) cc._type;
+        
+        CodeDeclaratorFunction func = (CodeDeclaratorFunction) cc._head;
+        for(Code code : func._argl) {
+            
+            // make sure we're not mixing things
+            if(code instanceof CodeDeclaration) {
+                if(has_old_style_decls) {
+                    env.diag.report(E_FUNC_MIX_DECLS, cc);
+                    return;
+                }
+                
+                code.acceptVisitor(this);                
+            
+            // get the types in the right order
+            } else if(code instanceof CodeId) {
+                CodeId param_id = (CodeId) code;
+                CType param_type = params.get(param_id._s);
+                tt._argTypes.add(param_type);
+                code._type = param_type;
+            }
+        }
+        
+        if(Env.DEBUG) {
+            System.out.print("DEBUG: " + id.getSourcePosition().toString());
+            printer.print(id._type);
+        }
+        
+        cc._body.acceptVisitor(this);
+    }
+
+    public void visit(CodeDeclaration cc) {
+        for(CodeDeclarator dtor : cc._ldtor) {
+            
+            if(null == dtor) {
+                continue;
+            }
+            
+            CType arg_type = builder.formType(cc._lspec, dtor);
+            dtor._type = arg_type;
+            
+            // set the type of the id
+            CodeId id = dtor.getOptId();
+            
+            if(null != id) {
+                
+                id._type = dtor._type;
+                id._type._isAddressable = true;
+                
+                // makes sure we don't try to use function types unless they
+                // are function pointers
+                if(!dtor._is_typedef) {
+                    
+                    if(id._type instanceof CTypeFunction
+                    && 0 != compound_count) {
+                        env.diag.report(E_SYMBOL_FUNC_TYPE, id);
+                        id._type = builder.INVALID_TYPE;
+                    }
+                }
+                
+                // make sure that if we're declaring a one-dimensional
+                // array that it has a complete type.
+                if(id._type instanceof CTypeArray) {
+                    CTypeArray arr_t = (CTypeArray) id._type;
+                    
+                    if(!(arr_t._pointeeType instanceof CTypeArray)
+                    && null == arr_t._optSize
+                    && 0 == func_decl_count) {
+                        env.diag.report(E_INCOMPLETE_ARRAY, id);
+                        id._type = builder.INVALID_TYPE;
+                    }
+                }
+            }
+            
+            // we need to check the type of constant expressions
+            dtor.acceptVisitor(this);
+            
+            printer.print(dtor._type);
+        }
+        
+        // we need to check the type of constant expressions (e.g. in
+        // enums, array dimensions, etc.
+        for(CodeSpecifier spec : cc._lspec) {
+            spec.acceptVisitor(this);
+        }
+        
+        // make sure we can typecheck specifiers even in the absence of
+        // a declarator
+        if(cc._ldtor.isEmpty()) {
+            cc._type = builder.formTypeFromSpecifiers(cc._lspec);
+        }
+    }
+
+    public void visit(CodeId cc) { }
+
+    public void visit(CodeTypeName cc) {
+        for(CodeSpecifier spec : cc._lspec) {
+            spec.acceptVisitor(this);
+        }
+        if(null != cc._dtor) {
+            cc._dtor.acceptVisitor(this);
+        }
+        cc._type = builder.formType(cc._lspec, cc._dtor);
+    }
+
+    public void visit(CodeString cc) {
+        
+        // add in the null-terminating character.
+        cc._s = cc._s + '\0';
+        
+        // this ensures that the string will have the right dimension
+        // for the sizeof operator.
+        cc._type = new CTypeArray(
+            CHAR_TYPE, new CTypeConstExpr(
+                new CodeIntegerConstant(cc._s.length())
+            )
+        );
+        
+        // set up the behaviour of this constant
+        ((CTypeArray) cc._type)._pointeeType._isConst = true;
+        cc._type._isAddressable = true;
+        
+        cc._const_val = cc._s;
+    }
+
+    public void visit(CodeCharacterConstant cc) {
+        cc._type = CHAR_TYPE;
+        char[] as_array = cc._s.toCharArray();
+        cc._const_val = new Integer(as_array[0]);
+    }
+
+    public void visit(CodeIntegerConstant cc) {
+        cc._type = new CTypeInt();
+        cc._const_val = Integer.valueOf(cc._s);
+    }
+
+    public void visit(CodeFloatingConstant cc) {
+        cc._type = new CTypeDouble();
+        cc._const_val = Double.valueOf(cc._s);
+    }
+
+    public void visit(CodeEnumerationConstant cc) {
+        cc._type = cc._scope.get(cc._s, Type.ENUMERATOR).code._type;
+    }
+
+    public void visit(CodeDotDotDot cc) { }
+
+    public void visit(CodeSpecifierStorage cc) { }
+
+    public void visit(CodeSpecifierQualifier cc) { }
+
+    public void visit(CodeSpecifierType cc) { }
+
+    public void visit(CodeSpecifierTypedefName cc) { }
+
+    public void visit(CodeSpecifierStruct cc) {
+        ++compound_count;
+        if(null != cc._optParts) {
+            for(Code part : cc._optParts) {
+                part.acceptVisitor(this);
+            }
+        }
+        --compound_count;
+    }
+
+    public void visit(CodeSpecifierUnion cc) {
+        ++compound_count;
+        if(null != cc._optParts) {
+            for(Code part : cc._optParts) {
+                part.acceptVisitor(this);
+            }
+        }
+        --compound_count;
+    }
+
+    public void visit(CodeSpecifierEnum cc) {
+        if(null != cc._optParts) {
+            for(Code part : cc._optParts) {
+                part.acceptVisitor(this);
+            }
+        }
+    }
+
+    public void visit(CodeEnumerator cc) {
+        if(null != cc._optValue) {
+            cc._optValue.acceptVisitor(this);
+            
+            if(!(cc._optValue._type instanceof CTypeIntegral)) {
+                env.diag.report(E_ENUMERATOR_INTEGRAL, cc);
+            }
+        }
+    }
+    
+    public void visit(CodeDeclaratorParen cc) {
+        cc._decl.acceptVisitor(this);
+    }
+
+    public void visit(CodeDeclaratorArray cc) {
+        if(null != cc._optIndex) {
+            cc._optIndex.acceptVisitor(this);
+            
+            if(!(cc._optIndex._type instanceof CTypeIntegral)) {
+                env.diag.report(E_ARRAY_DIM_INTEGRAL, cc._optIndex);
+            }
+        }
+        
+        if(null != cc._optAr) {
+            cc._optAr.acceptVisitor(this);
+        }
+    }
+
+    public void visit(CodeDeclaratorFunction cc) {
+        ++func_decl_count;
+        cc._optFn.acceptVisitor(this);
+        
+        if(null != cc._argl) {
+            for(Code arg : cc._argl) {
+                if(null != arg) {
+                    arg.acceptVisitor(this);
+                }
+            }
+        }
+        --func_decl_count;
+    }
+
+    public void visit(CodeDeclaratorInit cc) {
+        cc._initializer.acceptVisitor(this);
+        cc._dtor.acceptVisitor(this);
+        
+        CodeId id = cc._dtor.getOptId();
+        if(null == id) {
+            return;
+        }
+        
+        // don't let us initialize a function type
+        if(id._type instanceof CTypeFunction) {
+            env.diag.report(E_SYMBOL_FUNC_TYPE, cc);
+            id._type = builder.INVALID_TYPE;
+       
+        // don't let us assign a value of a bad type
+        } else if(!cc._initializer._type.canBeAssignedTo(id._type)) {
+            env.diag.report(E_ASSIGN_INITIAL, id);
+        }
+    }
+
+    public void visit(CodeDeclaratorPointer cc) {
+        if(null != cc._optPointee) {
+            cc._optPointee.acceptVisitor(this);
+        }
+        cc._star.acceptVisitor(this);
+    }
+
+    public void visit(CodeDeclaratorWidth cc) {
+        if(null != cc._dtor) {
+            cc._dtor.acceptVisitor(this);
+        }
+        cc._width.acceptVisitor(this);
+        
+        if(!(cc._width._type instanceof CTypeIntegral)) {
+            env.diag.report(E_FIELD_WIDTH_INTEGRAL, cc._width);
+        }
+    }
+
+    public void visit(CodeDeclaratorId cc) {
+        //cc._id._type._isAddressable = true;
+    }
+
+    public void visit(CodePointerStar cc) {
+        if(null != cc._optStar) {
+            cc._optStar.acceptVisitor(this);
+        }
+        for(CodeSpecifier spec : cc._lspec) {
+            spec.acceptVisitor(this);
+        }
+    }
+
+    public void visit(CodeInitializerValue cc) {
+        cc._value.acceptVisitor(this);
+        cc._type = cc._value._type;
+    }
+
+    public void visit(CodeInitializerList cc) {
+        CodeInitializer last = null;
+        for(CodeInitializer init : cc._list) {
+            init.acceptVisitor(this);
+            last = init;
+        }
+        cc._type = last._type;
+    }
+
+    public void visit(CodeStatBreak cc) { }
+
+    public void visit(CodeStatCase cc) {
+        cc._value.acceptVisitor(this);
+        cc._switch = switch_stack.peek();
+        
+        // bad type for case
+        if(!cc._switch._expr._type.canBeAssignedTo(cc._value._type)) {
+            env.diag.report(
+                E_CASE_SWITCH_DISAGREE, 
+                cc, cc._switch._expr.getSourcePosition().toString()
+            );
+        
+        // make sure that the case expression can be evaluated at compile
+        // time
+        } else {
+            env.addPhase(new ParseTreeNodePhase(cc) {
+                public boolean apply(Env env, Code code) {
+                    CodeStatCase cs = (CodeStatCase) node;
+                    cs._value._const_val = env.interpret(cs._value);
+                    return false;
+                }
+            });
+        }
+        
+        cc._stat.acceptVisitor(this);
+    }
+
+    public void visit(CodeStatCompound cc) {
+        for(CodeDeclaration decl : cc._ldecl) {
+            decl.acceptVisitor(this);
+        }
+        for(CodeStat stat : cc._lstat) {
+            stat.acceptVisitor(this);
+        }
+    }
+
+    public void visit(CodeStatContinue cc) { }
+
+    public void visit(CodeStatDefault cc) {
+        cc._stat.acceptVisitor(this);
+    }
+
+    public void visit(CodeStatDo cc) {
+        cc._stat.acceptVisitor(this);
+        cc._test.acceptVisitor(this);
+        checkTest(cc);
+    }
+
+    public void visit(CodeStatExpression cc) {
+        if(null != cc._optExpr) {
+            cc._optExpr.acceptVisitor(this);
+            cc._type = cc._optExpr._type;
+        } else {
+            cc._type = new CTypeVoid();
+        }
+    }
+
+    public void visit(CodeStatFor cc) {
+        
+        if(null != cc._optInit) {
+            cc._optInit.acceptVisitor(this);
+        }
+        
+        if(null != cc._test) {
+            cc._test.acceptVisitor(this);
+            checkTest(cc);
+        }
+        
+        if(null != cc._optStep) {
+            cc._optStep.acceptVisitor(this);
+        }
+        
+        cc._stat.acceptVisitor(this);
+    }
+
+    public void visit(CodeStatGoto cc) { }
+
+    public void visit(CodeStatIf cc) {
+        cc._test.acceptVisitor(this);
+        cc._stat.acceptVisitor(this);
+        
+        checkTest(cc);
+        
+        if(null != cc._optElstat) {
+            cc._optElstat.acceptVisitor(this);
+        }
+    }
+
+    public void visit(CodeStatLabeled cc) {
+        cc._stat.acceptVisitor(this);
+    }
+
+    public void visit(CodeStatReturn cc) {
+        
+        if(null != cc._optExpr) {
+            cc._optExpr.acceptVisitor(this);
+            cc._type = cc._optExpr._type;
+        } else {
+            cc._type = new CTypeVoid();
+        }
+        
+        // make sure the return types are okay
+        if(!cc._type.canBeAssignedTo(((CTypeFunction) cc._func._type)._retType)) {
+            
+        }
+    }
+
+    public void visit(CodeStatSwitch cc) {
+        switch_stack.push(cc);
+        cc._expr.acceptVisitor(this);
+        
+        // check the test type
+        if(!(cc._expr._type instanceof CTypeArithmetic)) {
+            env.diag.report(E_SWITCH_ON_ARITHMETIC, cc._expr);
+            cc._expr._type = builder.INVALID_TYPE;
+        }
+        
+        cc._stat.acceptVisitor(this);
+        switch_stack.pop();
+    }
+
+    public void visit(CodeStatWhile cc) {
+        cc._test.acceptVisitor(this);
+        
+        checkTest(cc);
+        
+        cc._stat.acceptVisitor(this);
+    }
+
+    public void visit(CodeExprAssignment cc) {
+        
+        cc._a.acceptVisitor(this);
+        cc._b.acceptVisitor(this);
+        cc._type = builder.INVALID_TYPE;
+        
+        // trying to assign to a const
+        if(cc._a._type._isConst) {
+            env.diag.report(E_ASSIGN_TO_CONST, cc);
+            return;
+        
+        // trying to assign to a non-addressable place
+        } else if(!cc._a._type._isAddressable) {
+            env.diag.report(E_ASSIGN_TO_VALUE, cc);
+            return;
+        }
+        
+        CType rhs_type = cc._b._type;
+        CodeExpr orig_a = cc._a;
+        int op_as_infix = 0;
+        
+        // translate the operators into operators on infix expression
+        switch(cc._op._type) {
+            case CTokenType.STAR_ASSIGN: op_as_infix = CTokenType.STAR; break;
+            case CTokenType.SLASH_ASSIGN: op_as_infix = CTokenType.SLASH; break;
+            case CTokenType.MOD_ASSIGN: op_as_infix = CTokenType.MOD; break;
+            case CTokenType.PLUS_ASSIGN: op_as_infix = CTokenType.PLUS; break;
+            case CTokenType.MINUS_ASSIGN: op_as_infix = CTokenType.MINUS; break;
+            case CTokenType.LSH_ASSIGN: op_as_infix = CTokenType.LSH; break;
+            case CTokenType.RSH_ASSIGN: op_as_infix = CTokenType.RSH; break;
+            case CTokenType.AMP_ASSIGN: op_as_infix = CTokenType.AMP; break;
+            case CTokenType.XOR_ASSIGN: op_as_infix = CTokenType.XOR; break;
+            case CTokenType.VBAR_ASSIGN: op_as_infix = CTokenType.VBAR; break;
+        }
+        
+        switch(cc._op._type) {
+            default:
+                checkInfixExpr(op_as_infix, cc);
+                
+                // fall-through
+                
+            case CTokenType.ASSIGN:
+                if(!rhs_type.canBeAssignedTo(cc._a._type)) {
+                    env.diag.report(E_CANT_DO_ASSIGNMENT, cc);
+                }
+        }
+        
+        cc._a = orig_a;
+        cc._type = cc._a._type;
+    }
+
+    public void visit(CodeExprCast cc) {
+        cc._expr.acceptVisitor(this);
+        cc._typename.acceptVisitor(this);
+        
+        if(!cc._expr._type.canBeCastTo(cc._typename._type)) {
+            env.diag.report(E_ILLEGAL_CAST, cc);
+            cc._type = builder.INVALID_TYPE;
+        } else {
+            cc._type = cc._typename._type;
+        }
+    }
+
+    public void visit(CodeExprConditional cc) {
+        cc._test.acceptVisitor(this);
+        cc._a.acceptVisitor(this);
+        cc._b.acceptVisitor(this);
+        
+        cc._type = builder.INVALID_TYPE;
+        
+        if(!(cc._test._type instanceof CTypeBooleanSensitive)) {
+            env.diag.report(E_TEST_CANT_GO_BOOL, cc._test);
+            return;
+        }
+        
+        cc._test = exprToBool(cc._test);
+        
+        CType ta = cc._a._type;
+        CType tb = cc._b._type;
+        
+        // check that we can assign one of the types to the other
+        if(!ta.canBeCastTo(tb) || !tb.canBeCastTo(ta)) {
+            env.diag.report(E_BAD_OP_FOR_TYPE, cc, "conditional");
+            return;
+        }
+        
+        // both are pointers
+        if(ta instanceof CTypePointing 
+        && tb instanceof CTypePointing) {
+            
+            CTypePointing ptr_a_t = (CTypePointing) ta;
+            CTypePointing ptr_b_t = (CTypePointing) tb;
+            
+            // can inherit the specifiers and become both const and volatile
+            if(ptr_a_t._isVolatile && ptr_b_t._isConst
+            || ptr_a_t._isConst && ptr_b_t._isVolatile) {
+                env.diag.report(E_MULTI_QUALIFIER, cc);
+                return;
+            }
+            
+            // make one side void *
+            if(ptr_a_t._pointeeType instanceof CTypeVoid
+            && !(ptr_b_t._pointeeType instanceof CTypeVoid)) {
+                
+                cc._b = castTo(cc._b, VOID_POINTER_TYPE);
+                tb = cc._b._type;
+            
+            // make the other size void *
+            } else if(!(ptr_a_t._pointeeType instanceof CTypeVoid)
+                   && ptr_b_t._pointeeType instanceof CTypeVoid) {
+                
+                cc._a = castTo(cc._a, VOID_POINTER_TYPE);
+                ta = cc._a._type;
+            
+            // can't assign, so die
+            } else if(!ta.canBeAssignedTo(tb) || !tb.canBeAssignedTo(ta)) {
+                env.diag.report(E_BAD_OP_FOR_TYPE, cc, "conditional");
+                return;
+            }
+            
+            // create the type and merge the properties of both
+            cc._type = ta.copy();
+            
+        
+        // both are arithmetic, do the basic conversions
+        } else if(ta instanceof CTypeArithmetic 
+               && tb instanceof CTypeArithmetic) {
+            
+            binaryOpMeetFloats(cc);
+            binaryOpMeetTypes(cc);
+            cc._type = cc._a._type.copy();
+            
+        // can't assign, so die
+        } else if(!ta.canBeAssignedTo(tb) || !tb.canBeAssignedTo(ta)) {
+            env.diag.report(E_BAD_OP_FOR_TYPE, cc, "conditional");
+            return;
+            
+        } else {
+            
+            cc._type = ta.copy();
+        }
+        
+        cc._type._isAddressable = cc._type._isAddressable && tb._isAddressable;
+        cc._type._isConst = cc._type._isConst || tb._isConst;
+        cc._type._isVolatile = cc._type._isVolatile || tb._isVolatile;
+    }
+
+    public void visit(CodeExprInfix cc) {
+        cc._a.acceptVisitor(this);
+        cc._b.acceptVisitor(this);
+        
+        cc._type = builder.INVALID_TYPE;
+        
+        CType ta = cc._a._type;
+        CType tb = cc._b._type;
+        
+        // comma operator is easiest to deal with :D
+        if(CTokenType.COMMA == cc._op._type) {
+            cc._type = cc._b._type;
+            return;
+        }
+        
+        checkInfixExpr(cc._op._type, cc);
     }
 
     public void visit(CodeExprParen cc) {

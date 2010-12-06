@@ -722,8 +722,13 @@ public class C {
     //
     ///////////////////////////////////////////////////////////////////////////////
     
-    static public class CodeExprAssignment extends CodeExpr {
-    	public CTokenOperator _op;
+    static public class CodeExprAssignment extends CodeExprInfix {
+        
+    	public CodeExprAssignment(CTokenOperator op, CodeExpr a, CodeExpr b) {
+            super(op, a, b);
+        }
+
+        /*public CTokenOperator _op;
     	public CodeExpr      _a, _b;
     	
     	CodeExprAssignment(CTokenOperator op, CodeExpr a, CodeExpr b) 
@@ -733,7 +738,7 @@ public class C {
     	    _b = b;
     	    copyPosition(a);
 	    }
-    	
+    	*/
     	public void acceptVisitor(CodeVisitor v) { v.visit(this); }
     }
     static public class CodeExprCast extends CodeExpr {

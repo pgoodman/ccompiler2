@@ -183,9 +183,10 @@ public abstract class CType {
         @Override
         public boolean canBeAssignedTo(CType that) {
             return !breaksConstCorrectness(that) && (
-                this._id == that._id
-             || that instanceof CTypeIntegral
-             || that instanceof CTypeFloating
+            //    this._id == that._id
+            // || that instanceof CTypeIntegral
+            // || 
+             that instanceof CTypeFloating
             );
         }
 
