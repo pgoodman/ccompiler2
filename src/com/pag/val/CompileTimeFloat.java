@@ -56,7 +56,7 @@ public class CompileTimeFloat implements CompileTimeValue {
         return make(value >= cast(other).value ? 1 : 0);
     }
 
-    public CompileTimeValue greather_than(CompileTimeValue other) {
+    public CompileTimeValue greater_than(CompileTimeValue other) {
         return make(value > cast(other).value ? 1 : 0);
     }
 

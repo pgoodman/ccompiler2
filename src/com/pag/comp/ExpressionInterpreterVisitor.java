@@ -276,8 +276,8 @@ public class ExpressionInterpreterVisitor implements CodeVisitor {
             case CTokenType.AMP: ret = av.bit_and(bv); break;
             case CTokenType.EQUALS: ret = av.equals(bv); break;
             case CTokenType.NOT_EQUALS: ret = av.not_equals(bv); break;
-            case CTokenType.LT: ret = av.bit_or(bv); break;
-            case CTokenType.GT: ret = av.less_than(bv); break;
+            case CTokenType.LT: ret = av.less_than(bv); break;
+            case CTokenType.GT: ret = av.greater_than(bv); break;
             case CTokenType.LT_EQ: ret = av.less_than_equal(bv); break;
             case CTokenType.GT_EQ: ret = av.bit_or(bv); break;
             case CTokenType.LSH: ret = av.bit_left_shift(bv); break;
@@ -299,6 +299,7 @@ public class ExpressionInterpreterVisitor implements CodeVisitor {
     
     public void visit(CodeExprParen cc) {
         cc._expr.acceptVisitor(this);
+        cc._const_val = cc._expr._const_val;
     }
     
     public void visit(CodeExprPostfix cc) {

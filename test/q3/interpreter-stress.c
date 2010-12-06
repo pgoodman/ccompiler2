@@ -18,7 +18,7 @@ typedef enum _foo {
 
 int main(int arr5[][BAR][BAZ], int (*FOO /* expect warning */ )(void *, int BAZ /* no warning expected */)) {
 
-    int arr1[1 ? 1 - 2 < 0 ? 4 /* this */ : 5 : 6];
+    int arr1[1 ? ((1 - 2) < 0 ? 4 /* this */ : 5) : 6];
     int arr2[3];
     int arr3[BAR], *arr4;
 

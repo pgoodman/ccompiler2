@@ -29,7 +29,7 @@ public interface CompileTimeValue {
     public CompileTimeValue bit_right_shift(CompileTimeValue other);
     
     public CompileTimeValue less_than(CompileTimeValue other);
-    public CompileTimeValue greather_than(CompileTimeValue other);
+    public CompileTimeValue greater_than(CompileTimeValue other);
     public CompileTimeValue equals(CompileTimeValue other);
     public CompileTimeValue not_equals(CompileTimeValue other);
     public CompileTimeValue less_than_equal(CompileTimeValue other);

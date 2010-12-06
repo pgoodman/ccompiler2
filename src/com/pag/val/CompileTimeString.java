@@ -53,7 +53,7 @@ public class CompileTimeString implements CompileTimeValue {
         return null;
     }
 
-    public CompileTimeValue greather_than(CompileTimeValue other) {
+    public CompileTimeValue greater_than(CompileTimeValue other) {
         return null;
     }
 
