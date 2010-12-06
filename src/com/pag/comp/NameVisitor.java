@@ -697,10 +697,10 @@ public class NameVisitor implements CodeVisitor {
         cc._scope = env.getScope();
         cc._test.acceptVisitor(this);
         env.pushScope(func);
-        cc._thexpr.acceptVisitor(this);
+        cc._a.acceptVisitor(this);
         env.popScope();
         env.pushScope(func);
-        cc._elexpr.acceptVisitor(this);
+        cc._b.acceptVisitor(this);
         env.popScope();
     }
 

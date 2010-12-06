@@ -86,7 +86,7 @@ public enum Message {
     E_CALL_FUNC_PTR         (ERROR,         "Cannot perform a function call on an expression that doesn't have a function pointer type."),
     E_CALL_FUNC_MISSING_ARGS(ERROR,         "Too few parameters were passed to the function to be called."),
     E_CALL_FUNC_EXTRA_ARGS  (ERROR,         "Too many parameters were passed to the function to be called."),
-    E_CALL_BAD_ARG_TYPE     (ERROR,         "The type of the expression passed into this function is not assignable to the parameter type that the function expects in the expression's place."),
+    E_CALL_BAD_ARG_TYPE     (ERROR,         "The type of the expression passed into this function is not assignable to the\n    parameter typethat the function expects in the expression's place."),
     E_BAD_OP_FOR_TYPE       (ERROR,         "This %% operator cannot be used on expressions of this type."),
     
     E_EXPR_HAS_CONST_TYPE   (ERROR,         "Cannot modify expression whose type is const-qualified."),

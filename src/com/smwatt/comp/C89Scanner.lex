@@ -71,7 +71,7 @@ IType =		(u|U|l|L)*
 "/*"~"*/"					{ /* Ignore */ }
 [ \t\v\n\r\f]				{ /* Ignore */ }
 
-"auto"						{ return specifier(CTokenType.AUTO); }
+"auto"						{ return specifier(CTokenType.AUTO); } /* BUG fixed */
 "break"						{ return token    (CTokenType.BREAK); }
 "case"						{ return token    (CTokenType.CASE); }
 "char"						{ return specifier(CTokenType.CHAR); }
@@ -180,7 +180,7 @@ IType =		(u|U|l|L)*
 "."							{ return operator (CTokenType.DOT); }
 ";"							{ return token    (CTokenType.SEMI); }
 ":"							{ return token    (CTokenType.COLON); }
-"?"							{ return token    (CTokenType.QMARK); }
+"?"							{ return operator (CTokenType.QMARK); } /* BUG fixed */
 "#"							{ return token    (CTokenType.POUND); }
 "##"						{ return token    (CTokenType.POUND_POUND); }
 "~"							{ return operator (CTokenType.TILDE); }

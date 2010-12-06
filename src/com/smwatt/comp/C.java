@@ -728,7 +728,7 @@ public class C {
     	{ 
     	    _op = op; 
     	    _a = a; 
-    	    _b = b; 
+    	    _b = b;
     	    copyPosition(a);
 	    }
     	
@@ -753,22 +753,26 @@ public class C {
     	
     	public void acceptVisitor(CodeVisitor v) { v.visit(this); }
     }
-    static public class CodeExprConditional extends CodeExpr {
-    	public CodeExpr _test, _thexpr, _elexpr;
+    
+    static public abstract class CodeExprTwoArgsMeet extends CodeExpr {
+        public CodeExpr _a, _b;
+    }
+    
+    static public class CodeExprConditional extends CodeExprTwoArgsMeet {
+    	public CodeExpr _test;
     	
     	CodeExprConditional(CodeExpr test, CodeExpr thexpr, CodeExpr elexpr) 
     	{ 
     	    _test = test; 
-    	    _thexpr = thexpr; 
-    	    _elexpr = elexpr; 
+    	    _a = thexpr; 
+    	    _b = elexpr; 
     	    copyPosition(test);
 	    }
     	
     	public void acceptVisitor(CodeVisitor v) { v.visit(this); }
     }
-    static public class CodeExprInfix extends CodeExpr {
+    static public class CodeExprInfix extends CodeExprTwoArgsMeet {
     	public CTokenOperator _op;
-    	public CodeExpr      _a, _b;
     	
     	public CodeExprInfix(CTokenOperator op, CodeExpr a, CodeExpr b) 
     	{ 

@@ -220,8 +220,8 @@ public class ExpressionInterpreterVisitor implements CodeVisitor {
     public void visit(CodeExprConditional cc) {
         // TODO
         cc._test.acceptVisitor(this);
-        cc._thexpr.acceptVisitor(this);
-        cc._elexpr.acceptVisitor(this);
+        cc._a.acceptVisitor(this);
+        cc._b.acceptVisitor(this);
     }
     
     public void visit(CodeExprInfix cc) {

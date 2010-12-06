@@ -899,7 +899,7 @@ public class C89Scanner implements CScanner, java_cup.runtime.Scanner {
           }
         case 101: break;
         case 27: 
-          { return token    (CTokenType.QMARK);
+          { return operator    (CTokenType.QMARK);
           }
         case 102: break;
         case 45: 

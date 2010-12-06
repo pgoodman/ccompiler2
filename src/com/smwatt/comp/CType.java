@@ -137,7 +137,7 @@ public abstract class CType {
             return (
                 this._id == that._id
              || (that instanceof CTypeIntegral /* && (_signed == ((CTypeIntegral) that)._signed)*/ )
-             || (that instanceof CTypeFloating) 
+             //|| (that instanceof CTypeFloating) 
             );
         }
 
@@ -199,6 +199,41 @@ public abstract class CType {
     public static abstract class CTypePointing extends CType 
     implements CTypeComparable, CTypeBooleanSensitive {
         public CType _pointeeType;
+        
+        @Override
+        public boolean canBeCastTo(CType that) {
+            
+            if(!(that instanceof CTypePointing)) {
+                return false;
+            }
+            
+            CTypePointing tt = (CTypePointing) that;
+            
+            // an attempt at const correctness :P
+            if(tt._isVolatile != _isVolatile) {
+                return false;
+            } else if(_pointeeType._isVolatile != tt._pointeeType._isVolatile) {
+                return false;
+            } else if(_pointeeType._isConst && !tt._pointeeType._isConst) {
+                return false;
+            }
+            
+            if(_pointeeType instanceof CTypeVoid) {
+                return true;
+                
+            } else if(tt._pointeeType instanceof CTypeVoid) {
+                return true;
+            }
+            
+            return this._pointeeType.canBeAssignedTo(
+                tt._pointeeType
+            );
+        }
+
+        @Override
+        public boolean canBePromotedTo(CType that) {
+            return false;
+        }
     }
     
     public static class CTypeInvalid extends CType { 
@@ -357,14 +392,17 @@ public abstract class CType {
         public CTypeFunction(CType returnType, List<CType> argTypes) {
             super();
             init(returnType, argTypes, argTypes == null);
+            _isAddressable = true;
         }
         public CTypeFunction(CType returnType, List<CType> argTypes, boolean moreArgs) {
             super();
             init(returnType, argTypes, moreArgs);
+            _isAddressable = true;
         }
         
         public CTypeFunction() {
             super();
+            _isAddressable = true;
         }
         
         public void init(CType returnType, List<CType> argTypes, boolean moreArgs) {
@@ -418,14 +456,10 @@ public abstract class CType {
     
     public static class CTypeFunctionPointer extends CTypePointing {
         
-        // counter to keep track of the number of times we've taking the
-        // address of the function.
-        public int _count;
-        
-        public CTypeFunctionPointer(CType pointeeType, int count) {
+        public CTypeFunctionPointer(CType pointeeType, boolean addressable) {
             super();
             _pointeeType = pointeeType;
-            _count = count;
+            _isAddressable = addressable;
         }
 
         @Override
@@ -439,23 +473,13 @@ public abstract class CType {
         }
 
         @Override
-        public boolean canBeCastTo(CType that) {
-            return that instanceof CTypeFunctionPointer;
-        }
-
-        @Override
-        public boolean canBePromotedTo(CType that) {
-            return false;
-        }
-
-        @Override
         public int sizeOf(Env e) {
             return 8;
         }
 
         @Override
         public CType copy() {
-            return super.copy(new CTypeFunctionPointer(_pointeeType, _count));
+            return super.copy(new CTypeFunctionPointer(_pointeeType, _isAddressable));
         }
         
         public void acceptVisitor(CTypeVisitor v) { v.visit(this); }
@@ -498,16 +522,6 @@ public abstract class CType {
         }
 
         @Override
-        public boolean canBeCastTo(CType that) {
-            return that instanceof CTypePointing;
-        }
-
-        @Override
-        public boolean canBePromotedTo(CType that) {
-            return false;
-        }
-
-        @Override
         public CType copy() {
             return super.copy(new CTypeArray(_pointeeType, _optSize));
         }
@@ -520,8 +534,10 @@ public abstract class CType {
         }
         
         public static CTypePointing optNew(CType pointeeType) {
+            
             if(pointeeType instanceof CTypeFunction) {
-                return new CTypeFunctionPointer(pointeeType, 0);
+                
+                return new CTypeFunctionPointer(pointeeType, true);
             
             // handle the case where we can reference a function directly
             // or reference it with an & and still get a function pointer,
@@ -529,8 +545,10 @@ public abstract class CType {
             // pointer.
             } else if(pointeeType instanceof CTypeFunctionPointer) {
                 CTypeFunctionPointer fptr = (CTypeFunctionPointer) pointeeType;
-                if(0 == fptr._count) {
-                    ++fptr._count;
+                
+                if(fptr._isAddressable) {
+                    fptr = (CTypeFunctionPointer) fptr.copy();
+                    fptr._isAddressable = false;
                     return fptr;
                 }
             }
@@ -550,16 +568,6 @@ public abstract class CType {
                 _pointeeType.canBeAssignedTo(((CTypePointing) that)._pointeeType)
              || _pointeeType instanceof CTypeVoid
             );
-        }
-
-        @Override
-        public boolean canBeCastTo(CType that) {
-            return that instanceof CTypePointer;
-        }
-
-        @Override
-        public boolean canBePromotedTo(CType that) {
-            return that == this;
         }
 
         @Override

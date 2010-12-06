@@ -65,13 +65,12 @@ public class TypeInferenceVisitor implements CodeVisitor {
         
         // basic constructions of substitution expressions
         ZERO_INT = new CodeIntegerConstant(0);
-        ZERO_FLOAT = new CodeFloatingConstant(0.0);
-        NULL_POINTER = castTo(ZERO_INT, VOID_POINTER_TYPE);
-        
-        // type assignment of substitution expressions
         ZERO_INT._type = LONG_INT_TYPE;
+        
+        ZERO_FLOAT = new CodeFloatingConstant(0.0);
         ZERO_FLOAT._type = DOUBLE_TYPE;
-        NULL_POINTER._type = VOID_POINTER_TYPE;
+        
+        NULL_POINTER = castTo(ZERO_INT, VOID_POINTER_TYPE);
         
         LONG_INT_TYPE.makeLong();
         UNSIGNED_INT_TYPE._signed = -1;
@@ -85,7 +84,7 @@ public class TypeInferenceVisitor implements CodeVisitor {
      */
     private CodeExpr pointerToBool(CodeExpr expr) {
         CodeExpr ret = new CodeExprInfix(
-            new CTokenOperator(CTokenType.EQUALS),
+            new CTokenOperator(CTokenType.NOT_EQUALS),
             expr._type instanceof CTypeFunctionPointer 
                 ? castTo(expr, VOID_POINTER_TYPE) 
                 : expr,
@@ -104,7 +103,7 @@ public class TypeInferenceVisitor implements CodeVisitor {
     private CodeExpr floatToBool(CodeExpr expr) {
         
         CodeExpr ret = new CodeExprInfix(
-            new CTokenOperator(CTokenType.EQUALS),
+            new CTokenOperator(CTokenType.NOT_EQUALS),
             expr._type instanceof CTypeFloat 
                 ? castTo(expr, DOUBLE_TYPE) 
                 : expr,
@@ -141,12 +140,27 @@ public class TypeInferenceVisitor implements CodeVisitor {
      * @return
      */
     private CodeExpr castTo(CodeExpr expr, CType type) {
+        
         CodeExpr ret = new CodeExprCast(type, expr);
         ret._type = type;
+        
+        // copy over the properties if the old type doesn't use the default
+        // ones
+        if(expr._type._isAddressable
+        || expr._type._isConst
+        || expr._type._isVolatile) {
+            
+            ret._type = ret._type.copy();
+            
+            ret._type._isAddressable = expr._type._isAddressable;
+            ret._type._isConst = expr._type._isConst;
+            ret._type._isVolatile = expr._type._isVolatile;
+        }
+        
         return ret;
     }
     
-    private void binaryOpMeetTypes(CodeExprInfix cc) {
+    private void binaryOpMeetTypes(CodeExprTwoArgsMeet cc) {
         CType ta = cc._a._type;
         CType tb = cc._b._type;
         
@@ -159,6 +173,37 @@ public class TypeInferenceVisitor implements CodeVisitor {
             } else {
                 cc._b = castTo(cc._b, ta);
             }
+        }
+    }
+    
+    private void binaryOpMeetFloats(CodeExprTwoArgsMeet cc) {
+        
+        CType ta = cc._a._type;
+        CType tb = cc._b._type;
+        
+        boolean a_is_float = ta instanceof CTypeFloating;
+        boolean b_is_float = tb instanceof CTypeFloating;
+        
+        // both arguments are float, but of different widths
+        if(a_is_float && b_is_float) {
+            
+            binaryOpMeetTypes(cc);
+        
+        // one of the arguments is float; convert the other to float
+        } if(a_is_float && !b_is_float || !a_is_float && b_is_float) {
+            
+            if(!ta.canBeCastTo(tb) && !tb.canBeCastTo(ta)) {
+                env.diag.report(E_INFIX_CANT_UNIFY, cc);
+                return;
+            }
+            
+            if(a_is_float) {
+                cc._b = castTo(cc._b, ta);
+            }
+            
+            if(b_is_float) {
+                cc._a = castTo(cc._a, tb);
+            }                
         }
     }
     
@@ -629,12 +674,87 @@ public class TypeInferenceVisitor implements CodeVisitor {
     }
 
     public void visit(CodeExprConditional cc) {
-        // TODO check test type
-        // TODO check that both sides have same type
         cc._test.acceptVisitor(this);
-        cc._thexpr.acceptVisitor(this);
-        cc._elexpr.acceptVisitor(this);
-        // TODO yield type, LUB of cc._thexpr and cc.elexpr
+        cc._a.acceptVisitor(this);
+        cc._b.acceptVisitor(this);
+        
+        cc._type = builder.INVALID_TYPE;
+        
+        if(!(cc._test._type instanceof CTypeBooleanSensitive)) {
+            env.diag.report(E_EXPR_CANT_GO_BOOL, cc._test);
+            return;
+        }
+        
+        cc._test = exprToBool(cc._test);
+        
+        CType ta = cc._a._type;
+        CType tb = cc._b._type;
+        
+        // check that we can assign one of the types to the other
+        if(!ta.canBeCastTo(tb) || !tb.canBeCastTo(ta)) {
+            env.diag.report(E_BAD_OP_FOR_TYPE, cc, "conditional");
+            return;
+        }
+        
+        // both are pointers
+        if(ta instanceof CTypePointing 
+        && tb instanceof CTypePointing) {
+            
+            CTypePointing ptr_a_t = (CTypePointing) ta;
+            CTypePointing ptr_b_t = (CTypePointing) tb;
+            
+            // can inherit the specifiers and become both const and volatile
+            if(ptr_a_t._isVolatile && ptr_b_t._isConst
+            || ptr_a_t._isConst && ptr_b_t._isVolatile) {
+                env.diag.report(E_MULTI_QUALIFIER, cc);
+                return;
+            }
+            
+            // make one side void *
+            if(ptr_a_t._pointeeType instanceof CTypeVoid
+            && !(ptr_b_t._pointeeType instanceof CTypeVoid)) {
+                
+                cc._b = castTo(cc._b, VOID_POINTER_TYPE);
+                tb = cc._b._type;
+            
+            // make the other size void *
+            } else if(!(ptr_a_t._pointeeType instanceof CTypeVoid)
+                   && ptr_b_t._pointeeType instanceof CTypeVoid) {
+                
+                cc._a = castTo(cc._a, VOID_POINTER_TYPE);
+                ta = cc._a._type;
+            
+            // can't assign, so die
+            } else if(!ta.canBeAssignedTo(tb) || !tb.canBeAssignedTo(ta)) {
+                env.diag.report(E_BAD_OP_FOR_TYPE, cc, "conditional");
+                return;
+            }
+            
+            // create the type and merge the properties of both
+            cc._type = ta.copy();
+            
+        
+        // both are arithmetic, do the basic conversions
+        } else if(ta instanceof CTypeArithmetic 
+               && tb instanceof CTypeArithmetic) {
+            
+            binaryOpMeetFloats(cc);
+            binaryOpMeetTypes(cc);
+            cc._type = cc._a._type.copy();
+            
+        // can't assign, so die
+        } else if(!ta.canBeAssignedTo(tb) || !tb.canBeAssignedTo(ta)) {
+            env.diag.report(E_BAD_OP_FOR_TYPE, cc, "conditional");
+            return;
+            
+        } else {
+            
+            cc._type = ta.copy();
+        }
+        
+        cc._type._isAddressable = cc._type._isAddressable && tb._isAddressable;
+        cc._type._isConst = cc._type._isConst || tb._isConst;
+        cc._type._isVolatile = cc._type._isVolatile || tb._isVolatile;
     }
 
     public void visit(CodeExprInfix cc) {
@@ -695,6 +815,7 @@ public class TypeInferenceVisitor implements CodeVisitor {
                 if(!(ta instanceof CTypeMultiplicative)
                 || !(tb instanceof CTypeMultiplicative)) {
                     env.diag.report(E_BAD_OP_FOR_TYPE, cc, "infix");
+                    return;
                 }
                 
                 // fall-through
@@ -716,30 +837,7 @@ public class TypeInferenceVisitor implements CodeVisitor {
             case CTokenType.LT_EQ:
             case CTokenType.GT_EQ:
                 
-                boolean a_is_float = ta instanceof CTypeFloating;
-                boolean b_is_float = tb instanceof CTypeFloating;
-                
-                // both arguments are float, but of different widths
-                if(a_is_float && b_is_float) {
-                    
-                    binaryOpMeetTypes(cc);
-                
-                // one of the arguments is float; convert the other to float
-                } if(a_is_float && !b_is_float || !a_is_float && b_is_float) {
-                    
-                    if(!ta.canBeCastTo(tb) && !tb.canBeCastTo(ta)) {
-                        env.diag.report(E_INFIX_CANT_UNIFY, cc);
-                        return;
-                    }
-                    
-                    if(a_is_float) {
-                        cc._b = castTo(cc._b, ta);
-                    }
-                    
-                    if(b_is_float) {
-                        cc._a = castTo(cc._a, tb);
-                    }                
-                }
+                binaryOpMeetFloats(cc);
         }
         
         // re-compute
@@ -948,6 +1046,7 @@ public class TypeInferenceVisitor implements CodeVisitor {
                     env.diag.report(E_EXPR_NOT_ADDRESSABLE, cc);
                 } else {
                     cc._type = CTypePointer.optNew(tt);
+                    cc._type._isAddressable = false;
                 }
                 
                 break;

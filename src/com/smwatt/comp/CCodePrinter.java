@@ -376,9 +376,9 @@ public class CCodePrinter implements C.CodeVisitor {
 	public void visit(C.CodeExprConditional cc) {
 		visit(cc._test);
 		_tout.print(" ? ");
-		visit(cc._thexpr);
+		visit(cc._a);
 		_tout.print(" : ");
-		visit(cc._elexpr);
+		visit(cc._b);
 	}
 	public void visit(C.CodeExprInfix cc) {
 		visit(cc._a);
