@@ -16,12 +16,12 @@ typedef enum _foo {
     BAZ
 } foo;
 
-int main(void) {
+int main(int arr5[][BAR][BAZ], int (*FOO /* expect warning */ )(void *, int BAZ)) {
 
     int arr1[1 ? 1 - 2 < 0 ? 4 /* this */ : 5 : 6];
     int arr2[3];
     int arr3[BAR], *arr4;
-    int arr5[][BAR][BAZ];
+
     int arr6[BAR][BAZ];
     int arr7["hello"[0]];
     int arr8['h'];

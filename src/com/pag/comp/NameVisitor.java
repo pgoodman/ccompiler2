@@ -154,7 +154,7 @@ public class NameVisitor implements CodeVisitor {
         CSymbol sym = env.getSymbol(name);
         
         if(in_func_head) {
-            visitFuncParam(name, sym, cc);
+            //visitFuncParam(name, sym, cc);
         
         } else if(null == sym) {
             env.diag.report(E_VAR_UNKNOWN, cc, name);
@@ -431,7 +431,14 @@ public class NameVisitor implements CodeVisitor {
     }
     
     public void visitFuncParam(String name, CSymbol sym, Code cc) {
-        if(null != sym) {            
+        if(null != sym) {
+            
+            // param names are specified in some function type inside of
+            // a function declarator
+            if(func_param_list_count > 1) {
+                return;
+            }
+            
             // repeated parameter
             env.diag.report(
                 (env.getScope() == sym.scope) ? E_PARAM_SHADOW : W_PARAM_SHADOW, 

@@ -493,7 +493,7 @@ public class TypeInferenceVisitor implements CodeVisitor {
                 dtor.acceptVisitor(this);
             }
         }
-        --func_decl_count;
+        
         
         cc._type = builder.formType(cc._lspec, cc._head);
         id._type = cc._type;
@@ -530,6 +530,8 @@ public class TypeInferenceVisitor implements CodeVisitor {
             System.out.print("DEBUG: " + id.getSourcePosition().toString());
             printer.print(id._type);
         }
+        
+        --func_decl_count;
         
         cc._body.acceptVisitor(this);
     }
@@ -568,8 +570,8 @@ public class TypeInferenceVisitor implements CodeVisitor {
                 if(id._type instanceof CTypeArray) {
                     CTypeArray arr_t = (CTypeArray) id._type;
                     
-                    if(!(arr_t._pointeeType instanceof CTypeArray)
-                    && null == arr_t._optSize
+                    if(/*!(arr_t._pointeeType instanceof CTypeArray)
+                    && */ null == arr_t._optSize
                     && 0 == func_decl_count) {
                         env.diag.report(E_INCOMPLETE_ARRAY, id);
                         id._type = builder.INVALID_TYPE;
