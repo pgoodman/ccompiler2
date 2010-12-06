@@ -11,13 +11,22 @@ int b(x)
     return 0;
 }
 
-int c(int x) {
+typedef int (func_t)(void);
+
+int c(int x, func_t foo /* expect error */) {
     return 0;
 }
 
-float foo(a, b, c)
+int d(func_t) { /* expect error */
+    return 0;
+}
+
+float foo(a, b, c, e)
+    func_t e; /* expect error */
     int c;
     float b, a;
 {
-    return a * b * c;
+    func_t bar; /* expect error */
+    int (baz)(void *);
+    return a * b * c; /* expect error */
 }

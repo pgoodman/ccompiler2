@@ -23,6 +23,7 @@ public class FunctionVisitor implements CodeVisitor {
     
     private Env env;
     private boolean found_static;
+    private boolean in_typedef = false;
     
     public FunctionVisitor(Env static_env) {
         env = static_env;
@@ -82,11 +83,14 @@ public class FunctionVisitor implements CodeVisitor {
 
     public void visit(CodeDeclaration cc) {
         //func_id = null;
+        
+        in_typedef = false;
         found_static = false;
         
         if(null != cc._lspec) {
             for(CodeSpecifier spec : cc._lspec) {
                 spec.acceptVisitor(this);
+                in_typedef = in_typedef || spec.isTypedef();
             }
         }
         
@@ -95,6 +99,8 @@ public class FunctionVisitor implements CodeVisitor {
         if(found_static) {
             return;
         }
+        
+        Type sym_type = in_typedef ? Type.TYPEDEF_NAME : Type.FUNC_DECL;
         
         if(null != cc._ldtor) {
             for(CodeDeclarator dtor : cc._ldtor) {
@@ -115,6 +121,16 @@ public class FunctionVisitor implements CodeVisitor {
                 CSymbol sym = env.getSymbol(func_id._s);
                 
                 if(null != sym) {
+                    if(in_typedef) {
+                        if(Type.TYPEDEF_NAME == sym.type) {
+                            env.diag.report(
+                                E_VAR_SHADOW_TYPEDEF, 
+                                cc, sym.code.getSourcePosition().toString()
+                            );
+                        }
+                        
+                        continue;
+                    }
                     if(Type.FUNC_DEF == sym.type) {
                         env.diag.report(
                             N_FUNC_DECL_REDUNDANT, 
@@ -122,18 +138,20 @@ public class FunctionVisitor implements CodeVisitor {
                         );
                         
                         sym.declarations.add(cc);
+                        
                     } else if(Type.FUNC_DECL == sym.type) {
+                        
                         env.diag.report(N_FUNC_DECL_REPEAT, func_id);
                         sym.declarations.add(cc);
                     }
                 } else {
-                    sym = env.addSymbol(func_id._s, Type.FUNC_DECL, func_id);
+                    sym = env.addSymbol(func_id._s, sym_type, func_id);
                     sym.declarations.add(cc);
                 }
             }
         }
         
-        
+        in_typedef = false;
     }
 
     public void visit(CodeId cc) {

@@ -289,12 +289,12 @@ public class CTypeBuilder {
                         );
                         
                         switch (qspec._spec._type) {
-                        case CTokenType.CONST:
-                            constCount++; break;
-                        case CTokenType.VOLATILE: 
-                            volatileCount++; break;
-                        default:
-                            otherCount++;
+                            case CTokenType.CONST:
+                                constCount++; break;
+                            case CTokenType.VOLATILE: 
+                                volatileCount++; break;
+                            default:
+                                otherCount++;
                         }
                     }
                 }
@@ -686,6 +686,8 @@ public class CTypeBuilder {
                     }
                 }
             }
+            
+            spec._type = base;
         }
         
         if (base == null) {

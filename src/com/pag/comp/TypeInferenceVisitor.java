@@ -451,6 +451,21 @@ public class TypeInferenceVisitor implements CodeVisitor {
         }
     }
     
+    private void checkDeclaratorForFunc(CodeDeclarator cc) {
+        
+        CodeId id = cc.getOptId();
+        
+        // make sure we're not using function types
+        if(cc._type instanceof CTypeFunction
+        && null == cc.getOptFunction()) {
+            env.diag.report(E_SYMBOL_FUNC_TYPE, cc);
+            cc._type = builder.INVALID_TYPE;
+            if(null != id) {
+                id._type = cc._type;
+            }
+        }
+    }
+    
     public void visit(Code cc) {
         cc.acceptVisitor(this);
     }
@@ -499,6 +514,8 @@ public class TypeInferenceVisitor implements CodeVisitor {
                 }
                 
                 dtor.acceptVisitor(this);
+                
+                checkDeclaratorForFunc(dtor);
             }
         }
         
@@ -514,16 +531,30 @@ public class TypeInferenceVisitor implements CodeVisitor {
         CTypeFunction tt = (CTypeFunction) cc._type;
         
         CodeDeclaratorFunction func = (CodeDeclaratorFunction) cc._head;
+        int i = 0;
         for(Code code : func._argl) {
             
             // make sure we're not mixing things
             if(code instanceof CodeDeclaration) {
                 if(has_old_style_decls) {
                     env.diag.report(E_FUNC_MIX_DECLS, cc);
-                    return;
+                    break;
                 }
                 
-                code.acceptVisitor(this);                
+                CodeDeclaration decl = (CodeDeclaration) code;
+                
+                // go look for function types in the specifiers of a function
+                // parameter that isn't given a name.
+                if(0 == decl._ldtor.size()) {
+                    for(CodeSpecifier spec : decl._lspec) {
+                        if(null != spec 
+                        && spec._type instanceof CTypeFunction) {
+                            env.diag.report(E_SYMBOL_FUNC_TYPE, spec);
+                        }
+                    }
+                }
+                
+                code.acceptVisitor(this);
             
             // get the types in the right order
             } else if(code instanceof CodeId) {
@@ -581,15 +612,14 @@ public class TypeInferenceVisitor implements CodeVisitor {
                     }
                 }
                 
-                if(id._type instanceof CTypeFunction) {
-                    env.diag.report(E_SYMBOL_FUNC_TYPE, cc);
-                    id._type = builder.INVALID_TYPE;
-                }
-                
                 dtor._type = id._type;
             }
             
-            printer.print(dtor._type);
+            checkDeclaratorForFunc(dtor);
+            
+            if(Env.DEBUG) {
+                printer.print(dtor._type);
+            }
         }
         
         // we need to check the type of constant expressions (e.g. in

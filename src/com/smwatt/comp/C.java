@@ -215,7 +215,17 @@ public class C {
     	
     	CodeDeclaration(List<CodeSpecifier> lspec, List<CodeDeclarator> ldtor) 
     	{ 
-    	    _lspec = lspec; _ldtor = ldtor;
+    	    _lspec = lspec;
+    	    _ldtor = new ArrayList<CodeDeclarator>();
+    	    
+    	    if(null != ldtor) {
+        	    for(CodeDeclarator dtor : ldtor) {
+        	        if(null != dtor) {
+        	            _ldtor.add(dtor);
+        	        }
+        	    }
+    	    }
+    	    
     	    copyPosition(lspec);
     	    copyPosition(ldtor);
     	}
@@ -223,7 +233,9 @@ public class C {
     	CodeDeclaration(List<CodeSpecifier> lspec, CodeDeclarator dtor) {
     		_lspec = lspec;
     		_ldtor = new ArrayList<CodeDeclarator>();
-    		_ldtor.add(dtor);
+    		if(null != dtor) {
+    		    _ldtor.add(dtor);
+    		}
     		copyPosition(lspec, dtor);
     	}
     	
