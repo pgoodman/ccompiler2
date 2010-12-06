@@ -18,11 +18,13 @@ typedef enum _foo {
 
 int main(void) {
 
-    int arr1[];
+    int arr1[1 ? 1 - 2 < 0 ? 4 /* this */ : 5 : 6];
     int arr2[3];
     int arr3[BAR], *arr4;
     int arr5[][BAR][BAZ];
     int arr6[BAR][BAZ];
+    int arr7["hello"[0]];
+    int arr8['h'];
 
     /* enum sizes */
     sizeof FOO;
@@ -51,10 +53,12 @@ int main(void) {
     sizeof(long double *);
 
     /* array sizes */
-    sizeof arr1;
-    sizeof arr2;
+    sizeof arr1; /* expect 16 */
+    sizeof arr2; /* expect 12 */
     sizeof arr3; /* expect: 4 * 10 = 40 */
     sizeof arr4; /* pointer size */
     sizeof arr5; /* pointer size */
     sizeof arr6; /* expect 10 * 11 * 4 = 440 */
+    sizeof arr7; /* expect 416 */
+    sizeof arr8; /* expect 416 */
 }

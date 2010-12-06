@@ -6,7 +6,9 @@ import java.util.LinkedList;
 import com.pag.comp.ExpressionInterpreterVisitor;
 import com.pag.comp.Phase;
 import com.pag.diag.MessageHandler;
+import com.pag.val.CompileTimeValue;
 import com.smwatt.comp.C;
+import com.smwatt.comp.C.CodeExpr;
 
 public class Env {
     
@@ -105,8 +107,19 @@ public class Env {
     /**
      * Interpret some CCode object.
      */
-    public Object interpret(C.Code cc) {
-        interpreter.visit(cc);
-        return interpreter.yield();
+    public CompileTimeValue interpret(C.Code cc) {
+        
+        if(cc instanceof CodeExpr) {
+            CodeExpr expr = (CodeExpr) cc;
+            if(null == expr._const_val) {
+                interpreter.visit(expr);
+            }
+            return expr._const_val;
+        
+        // will give an error ;)
+        } else {
+            interpreter.visit(cc);
+        }
+        return null;
     }
 }

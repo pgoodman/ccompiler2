@@ -9,6 +9,9 @@ import java.util.LinkedList;
 import com.pag.sym.CSymbol;
 import com.pag.sym.Env;
 import com.pag.sym.Type;
+import com.pag.val.CompileTimeFloat;
+import com.pag.val.CompileTimeInteger;
+import com.pag.val.CompileTimeString;
 import com.smwatt.comp.CTokenOperator;
 import com.smwatt.comp.CTokenType;
 import com.smwatt.comp.CTypeBuilder;
@@ -622,23 +625,22 @@ public class TypeInferenceVisitor implements CodeVisitor {
         ((CTypeArray) cc._type)._pointeeType._isConst = true;
         cc._type._isAddressable = true;
         
-        cc._const_val = cc._s;
+        cc._const_val = new CompileTimeString(cc._s);
     }
 
     public void visit(CodeCharacterConstant cc) {
         cc._type = CHAR_TYPE;
-        char[] as_array = cc._s.toCharArray();
-        cc._const_val = new Integer(as_array[0]);
+        cc._const_val = new CompileTimeInteger(cc._s.charAt(0));
     }
 
     public void visit(CodeIntegerConstant cc) {
         cc._type = new CTypeInt();
-        cc._const_val = Integer.valueOf(cc._s);
+        cc._const_val = new CompileTimeInteger(Integer.parseInt(cc._s));
     }
 
     public void visit(CodeFloatingConstant cc) {
         cc._type = new CTypeDouble();
-        cc._const_val = Double.valueOf(cc._s);
+        cc._const_val = new CompileTimeFloat(Double.parseDouble(cc._s));
     }
 
     public void visit(CodeEnumerationConstant cc) {
@@ -701,7 +703,8 @@ public class TypeInferenceVisitor implements CodeVisitor {
         if(null != cc._optIndex) {
             cc._optIndex.acceptVisitor(this);
             
-            if(!(cc._optIndex._type instanceof CTypeIntegral)) {
+            if(!(cc._optIndex._type instanceof CTypeIntegral)
+            && !(cc._optIndex._type instanceof CTypeEnum)) {
                 env.diag.report(E_ARRAY_DIM_INTEGRAL, cc._optIndex);
             }
         }
@@ -1214,9 +1217,9 @@ public class TypeInferenceVisitor implements CodeVisitor {
             public boolean apply(Env env, Code code) {
                 CodeExprSizeofValue val = (CodeExprSizeofValue) node;
                 if(null == val._const_val) {
-                    val._const_val = new Integer(val._expr._type.sizeOf(env));                
+                    val._const_val = new CompileTimeInteger(val._expr._type.sizeOf(env));                
                     if(Env.DEBUG) {
-                        System.out.println("DEBUG: sizeof(expr) " + val + " = " + val._const_val);
+                        System.out.println("DEBUG: sizeof(expr) " + val + " = " + val._const_val.toString());
                     }
                 }
                 return true;
@@ -1233,9 +1236,9 @@ public class TypeInferenceVisitor implements CodeVisitor {
             public boolean apply(Env env, Code code) {
                 CodeExprSizeofType ty = (CodeExprSizeofType) node;
                 if(null == ty._const_val) {
-                    ty._const_val = new Integer(ty._tname._type.sizeOf(env));                
+                    ty._const_val = new CompileTimeInteger(ty._tname._type.sizeOf(env));                
                     if(Env.DEBUG) {
-                        System.out.println("DEBUG sizeof(type) " + ty + " = " + ty._const_val);
+                        System.out.println("DEBUG: sizeof(type) " + ty + " = " + ty._const_val.toString());
                     }
                 }
                 return true;

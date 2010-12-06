@@ -2,7 +2,6 @@ package com.pag;
 
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.util.LinkedList;
 
 import java_cup.runtime.Symbol;
 

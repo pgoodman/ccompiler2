@@ -12,6 +12,9 @@ import java.util.Hashtable;
 import java.util.List;
 
 import com.pag.sym.Scope;
+import com.pag.val.CompileTimeValue;
+import com.pag.val.CompileTimeFloat;
+import com.pag.val.CompileTimeInteger;
 
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -166,8 +169,7 @@ public class C {
     }
     
     static public abstract class CodeExpr extends Code {
-    	//CType	_optTypeAnnotation = null;
-        public Object _const_val = null; 
+        public CompileTimeValue _const_val = null; 
     }
     
     ///////////////////////////////////////////////////////////////////////////////
@@ -277,7 +279,7 @@ public class C {
     	CodeIntegerConstant(String s) { super(s); }
     	public CodeIntegerConstant(int i) {
     	    super("");
-    	    _const_val = new Integer(i);
+    	    _const_val = new CompileTimeInteger(i);
     	}
     	public void acceptVisitor(CodeVisitor v) { v.visit(this); }
     }
@@ -287,7 +289,7 @@ public class C {
     	
     	public CodeFloatingConstant(double i) {
             super("");
-            _const_val = new Double(i);
+            _const_val = new CompileTimeFloat(i);
         }
     
     	public void acceptVisitor(CodeVisitor v) { v.visit(this); }

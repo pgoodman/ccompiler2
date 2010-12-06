@@ -14,6 +14,7 @@ import com.pag.comp.ParseTreeNodePhase;
 import com.pag.sym.CSymbol;
 import com.pag.sym.Env;
 import com.pag.sym.Type;
+import com.pag.val.CompileTimeInteger;
 import com.smwatt.comp.C.Code;
 import com.smwatt.comp.C.CodeSpecifierStorage;
 
@@ -225,15 +226,19 @@ public class CTypeBuilder {
                 env.addPhase(new ParseTreeNodePhase(adtor) {
                     public boolean apply(Env env, Code code) {
                         C.CodeDeclaratorArray arr = (C.CodeDeclaratorArray) node;
-                        Integer obj_result = (Integer) env.interpret(arr._optIndex);
-
-                        int result = (obj_result).intValue();
+                        CompileTimeInteger obj_result = (CompileTimeInteger) env.interpret(arr._optIndex);
+                        
+                        if(null == obj_result) {
+                            return false;
+                        }
+                        
+                        int result = (obj_result).value;
                         
                         if(result <= 0) {
                             env.diag.report(
                                 E_ARRAY_SIZE_NOT_POS, 
                                 arr._optIndex, 
-                                obj_result
+                                new Integer(obj_result.value)
                             );
                             return false;
                         }
@@ -364,7 +369,7 @@ public class CTypeBuilder {
 
             public boolean apply(Env env, Code code) {
                 C.CodeDeclaratorWidth w = (C.CodeDeclaratorWidth) node;
-                int width = ((Integer) env.interpret(w._width)).intValue(); 
+                int width = ((CompileTimeInteger) env.interpret(w._width)).value; 
                 
                 if(width <= 0) {
                     env.diag.report(E_FIELD_WIDTH_POS, w);
@@ -615,21 +620,21 @@ public class CTypeBuilder {
                                 // assign this enumeration constant a value
                                 if(null == en._optValue) {
                                     en._optValue = new C.CodeIntegerConstant(Integer.toString(val));
-                                    en._optValue._const_val = new Integer(val++);
+                                    en._optValue._const_val = new CompileTimeInteger(val++);
                                 
                                 // take this enumeration constant's value
                                 // as the new starting point
                                 } else {
-                                    Integer obj_val = (Integer) env.interpret(en._optValue);
+                                    CompileTimeInteger obj_val = (CompileTimeInteger) env.interpret(en._optValue);
                                     en._optValue._const_val = obj_val;
-                                    val = obj_val.intValue() + 1;
+                                    val = obj_val.value + 1;
                                 }
                                 
                                 if(Env.DEBUG) {
                                     System.out.println(
                                         "DEBUG: enumerator " + en._id._s + 
                                         " given value " + 
-                                        en._optValue._const_val
+                                        en._optValue._const_val.toString()
                                     );
                                 }
                             }

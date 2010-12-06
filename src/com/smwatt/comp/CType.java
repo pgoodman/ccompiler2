@@ -11,6 +11,8 @@ import java.util.List;
 import java.util.ArrayList;
 
 import com.pag.sym.Env;
+import com.pag.val.CompileTimeInteger;
+
 import static com.pag.diag.Message.E_COMOUND_DEPEND_SIZEOF_SELF;
 
 // !!!
@@ -517,8 +519,8 @@ public abstract class CType {
             }
             
             return (
-                (Integer) e.interpret(_optSize._expr)
-            ).intValue() * _pointeeType.sizeOf(e);
+                (CompileTimeInteger) e.interpret(_optSize._expr)
+            ).value * _pointeeType.sizeOf(e);
         }
 
         @Override
@@ -608,7 +610,8 @@ public abstract class CType {
 
         @Override
         public boolean canBeAssignedTo(CType that) {
-            return that instanceof CTypeIntegral;
+            return that instanceof CTypeIntegral
+                || _id == that._id;
         }
 
         @Override

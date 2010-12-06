@@ -1,14 +1,18 @@
 package com.pag.comp;
 
-import java.util.LinkedList;
-
 import com.pag.sym.CSymbol;
 import com.pag.sym.Env;
 import com.pag.sym.Type;
+import com.pag.val.CompileTimeFloat;
+import com.pag.val.CompileTimeValue;
+import com.pag.val.CompileTimeInteger;
+
 import static com.pag.diag.Message.*;
 
 import com.smwatt.comp.CTokenType;
 import com.smwatt.comp.C.Code;
+import com.smwatt.comp.CType.CTypeFloating;
+import com.smwatt.comp.CType.CTypeIntegral;
 
 import static com.smwatt.comp.C.*;
 
@@ -23,14 +27,9 @@ import static com.smwatt.comp.C.*;
 public class ExpressionInterpreterVisitor implements CodeVisitor {
     
     private Env env;
-    private LinkedList<Object> results = new LinkedList<Object>();
     
     public ExpressionInterpreterVisitor(Env ee) {
         env = ee;
-    }
-    
-    public Object yield() {
-        return results.pop();
     }
     
     public void visit(Code cc) {
@@ -58,26 +57,20 @@ public class ExpressionInterpreterVisitor implements CodeVisitor {
     }
     
     public void visit(CodeString cc) {
-        env.diag.report(E_NON_CONSTANT_EXPR, cc);
+        //env.diag.report(E_NON_CONSTANT_EXPR, cc);
     }
     
-    public void visit(CodeCharacterConstant cc) {
-        results.push(cc._const_val);
-    }
+    public void visit(CodeCharacterConstant cc) { }
     
-    public void visit(CodeIntegerConstant cc) {
-        results.push(cc._const_val);
-    }
+    public void visit(CodeIntegerConstant cc) { }
     
-    public void visit(CodeFloatingConstant cc) {
-        results.push(cc._const_val);
-    }
+    public void visit(CodeFloatingConstant cc) { }
     
     // by this time we expect that the enumerator opt values have all been
     // substituted with actual values.
     public void visit(CodeEnumerationConstant cc) {
         CSymbol sym = cc._scope.get(cc._s, Type.ENUMERATOR);
-        results.push(((CodeEnumerator) sym.code)._optValue._const_val);
+        cc._const_val = ((CodeEnumerator) sym.code)._optValue._const_val;
     }
     
     public void visit(CodeDotDotDot cc) {
@@ -212,45 +205,95 @@ public class ExpressionInterpreterVisitor implements CodeVisitor {
         env.diag.report(E_NON_CONSTANT_EXPR, cc);
     }
     
-    public void visit(CodeExprCast cc) {
-        // TODO
+    public void visit(CodeExprCast cc) {        
+        if(null != cc._const_val) {
+            return;
+        }
+        
         cc._expr.acceptVisitor(this);
+        
+        if(null == cc._expr._const_val) {
+            return;
+        }
+        
+        if(cc._type instanceof CTypeIntegral
+        && cc._expr._type instanceof CTypeFloating) {
+            cc._const_val = new CompileTimeInteger(
+                (int) ((CompileTimeFloat) cc._expr._const_val).value
+            );
+        } else if(cc._type instanceof CTypeFloating
+               && cc._expr._type instanceof CTypeIntegral) {
+            cc._const_val = new CompileTimeFloat(
+                (double) ((CompileTimeInteger) cc._expr._const_val).value
+            );
+        }
     }
     
     public void visit(CodeExprConditional cc) {
-        // TODO
+        
+        if(null != cc._const_val) {
+            return;
+        }
+        
         cc._test.acceptVisitor(this);
         cc._a.acceptVisitor(this);
         cc._b.acceptVisitor(this);
+        
+        if(null == cc._test._const_val
+        || null == cc._a._const_val
+        || null == cc._b._const_val) {
+            return;
+        }
+        
+        CompileTimeInteger test = (CompileTimeInteger) cc._test._const_val;
+        cc._const_val = test.value == 1 ? cc._a._const_val : cc._b._const_val;
     }
     
     public void visit(CodeExprInfix cc) {
-        // TODO check op
+        
+        if(null != cc._const_val) {
+            return;
+        }
+        
         cc._a.acceptVisitor(this);
         cc._b.acceptVisitor(this);
         
-        switch(cc._op._type) {
-            case CTokenType.COMMA:
-            case CTokenType.VBAR_VBAR:
-            case CTokenType.AMP_AMP:
-            case CTokenType.VBAR:
-            case CTokenType.XOR:
-            case CTokenType.AMP:
-            case CTokenType.EQUALS:
-            case CTokenType.NOT_EQUALS:
-            case CTokenType.LT:
-            case CTokenType.GT:
-            case CTokenType.LT_EQ:
-            case CTokenType.GT_EQ:
-            case CTokenType.LSH:
-            case CTokenType.RSH:
-            case CTokenType.PLUS:
-            case CTokenType.MINUS:
-            case CTokenType.STAR:
-            case CTokenType.SLASH:
-            case CTokenType.MOD:
-            
+        CompileTimeValue av = cc._a._const_val;
+        CompileTimeValue bv = cc._b._const_val;
+        CompileTimeValue ret = null;
+        
+        if(null == av || null == bv) {
+            return;
         }
+        
+        switch(cc._op._type) {
+            case CTokenType.COMMA: ret = bv; break;
+            case CTokenType.VBAR_VBAR: ret = av.log_or(bv); break;
+            case CTokenType.AMP_AMP: ret = av.log_and(bv); break;
+            case CTokenType.VBAR: ret = av.bit_or(bv); break;
+            case CTokenType.XOR: ret = av.bit_xor(bv); break;
+            case CTokenType.AMP: ret = av.bit_and(bv); break;
+            case CTokenType.EQUALS: ret = av.equals(bv); break;
+            case CTokenType.NOT_EQUALS: ret = av.not_equals(bv); break;
+            case CTokenType.LT: ret = av.bit_or(bv); break;
+            case CTokenType.GT: ret = av.less_than(bv); break;
+            case CTokenType.LT_EQ: ret = av.less_than_equal(bv); break;
+            case CTokenType.GT_EQ: ret = av.bit_or(bv); break;
+            case CTokenType.LSH: ret = av.bit_left_shift(bv); break;
+            case CTokenType.RSH: ret = av.bit_right_shift(bv); break;
+            case CTokenType.PLUS: ret = av.add(bv); break;
+            case CTokenType.MINUS: ret = av.subtract(bv); break;
+            case CTokenType.STAR: ret = av.multiply(bv); break;
+            case CTokenType.SLASH: ret = av.divide(bv); break;
+            case CTokenType.MOD: ret = av.modulo(bv); break;
+        }
+        
+        if(null == ret) {
+            env.diag.report(E_NON_CONSTANT_EXPR, cc);
+            return;
+        }
+        
+        cc._const_val = ret;
     }
     
     public void visit(CodeExprParen cc) {
@@ -262,16 +305,44 @@ public class ExpressionInterpreterVisitor implements CodeVisitor {
     }
     
     public void visit(CodeExprPrefix cc) {
-        // TODO
+        
+        if(null != cc._const_val) {
+            return;
+        }
+        
+        this.visit(cc._a);
+        
         switch(cc._op._type) {
             case CTokenType.PLUS_PLUS:
             case CTokenType.MINUS_MINUS:
             case CTokenType.AMP:
+                env.diag.report(E_NON_CONSTANT_EXPR, cc);
+                return;
+                
             case CTokenType.STAR:
-            case CTokenType.PLUS:
+                cc._const_val = cc._a._const_val.dereference();                
+                if(null == cc._const_val) {
+                    env.diag.report(E_NON_CONSTANT_EXPR, cc);
+                }
+                return;
+        }
+        
+        CompileTimeValue res = cc._a._const_val;
+        
+        switch(cc._op._type) {
+            case CTokenType.PLUS: 
+                cc._const_val = res.positive();
+                break;
             case CTokenType.MINUS:
+                cc._const_val = res.negative();
+                break;
             case CTokenType.TILDE:
+                cc._const_val = res.bit_not();
+                break;
             case CTokenType.NOT:
+                cc._const_val = res.log_not();
+                break;
+                
         }
     }
     
@@ -281,32 +352,24 @@ public class ExpressionInterpreterVisitor implements CodeVisitor {
             env.diag.report(E_NON_CONSTANT_EXPR, cc);
         } else {
             cc._const_val = ((CodeEnumerator) sym.code)._optValue._const_val;
-            results.push(cc._const_val);
         }
     }
     
     public void visit(CodeExprSizeofValue cc) {
         if(null == cc._const_val) {
-            cc._const_val = new Integer(cc._expr._type.sizeOf(env));
+            cc._const_val = new CompileTimeInteger(cc._expr._type.sizeOf(env));
         }
-        results.push(cc._const_val);
     }
     
     public void visit(CodeExprSizeofType cc) {
         if(null == cc._const_val) {
-            cc._const_val = new Integer(cc._tname._type.sizeOf(env));
+            cc._const_val = new CompileTimeInteger(cc._tname._type.sizeOf(env));
         }
-        results.push(cc._const_val);
     }
     
     public void visit(CodeExprCall cc) {
         env.diag.report(E_NON_CONSTANT_EXPR, cc);
     }
-    
-    /*public void visit(CodeExprSubscript cc) {
-        // TODO 
-        
-    }*/
     
     public void visit(CodeExprField cc) {
         env.diag.report(E_NON_CONSTANT_EXPR, cc);
