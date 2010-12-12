@@ -916,9 +916,14 @@ public class C {
     	public void acceptVisitor(CodeVisitor v) { v.visit(this); }
     }*/
     
-    static public class CodeExprField extends CodeExpr {
+    static public abstract class CodeExprAccess extends CodeExpr {
+        public int            _offset;
+    }
+    
+    static public class CodeExprField extends CodeExprAccess {
         public CodeExpr       _ob;
         public CodeId         _id;
+        
     
         CodeExprField(CodeExpr ob, CodeId id) {
             _ob = ob;
@@ -927,7 +932,7 @@ public class C {
         }
         public void acceptVisitor(CodeVisitor v) { v.visit(this); }
     }
-    static public class CodeExprPointsTo extends CodeExpr {
+    static public class CodeExprPointsTo extends CodeExprAccess {
         public CodeExpr   _ptr;
         public CodeId     _id;
     

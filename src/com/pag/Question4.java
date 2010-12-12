@@ -5,12 +5,15 @@ import com.pag.comp.Phase;
 import com.pag.diag.Message;
 import com.pag.diag.MessageHandler;
 import com.pag.diag.Reporter;
+import com.pag.llvm.CodeGenerator;
 import com.pag.sym.Env;
 import com.smwatt.comp.SourcePosition;
 import com.smwatt.comp.C.Code;
 
-public class Question3 {
-        public static void main(String[] args) {     
+public class Question4 {
+    public static void main(String[] args) {
+        
+        Env.DEBUG = false;
         
         // delay reporting of messages until whatever phase is run last is
         // complete. note: not all phases will necessarily be run!
@@ -45,6 +48,21 @@ public class Question3 {
                 
                 return !Reporter.errorReported();
             }
+        },
+        
+        // code generation phase
+        new Phase() {
+
+            public boolean apply(Env env, Code code) {
+                
+                CodeGenerator gen = new CodeGenerator(env);
+                gen.visit(code);
+                
+                System.out.println(gen.toString());
+                
+                return false;
+            }
+            
         });
     }
 }

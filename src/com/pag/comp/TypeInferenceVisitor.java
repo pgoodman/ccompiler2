@@ -85,9 +85,12 @@ public class TypeInferenceVisitor implements CodeVisitor {
         builder = new CTypeBuilder(ee);
         printer = new CTypePrinter(System.out);
         
-        
-        
         INVALID_TYPE = builder.INVALID_TYPE;
+        
+        // initialize the scopes
+        ZERO_INT._scope = env.getScope();
+        ZERO_FLOAT._scope = env.getScope();
+        NULL_POINTER._scope = env.getScope();
     }
     
     /**
@@ -156,6 +159,7 @@ public class TypeInferenceVisitor implements CodeVisitor {
     private static CodeExpr castTo(CodeExpr expr, CType type) {
         
         CodeExpr ret = new CodeExprCast(type, expr);
+        ret._scope = expr._scope;
         ret._type = type;
         
         // copy over the properties if the old type doesn't use the default
@@ -531,7 +535,6 @@ public class TypeInferenceVisitor implements CodeVisitor {
         CTypeFunction tt = (CTypeFunction) cc._type;
         
         CodeDeclaratorFunction func = (CodeDeclaratorFunction) cc._head;
-        int i = 0;
         for(Code code : func._argl) {
             
             // make sure we're not mixing things
@@ -782,9 +785,7 @@ public class TypeInferenceVisitor implements CodeVisitor {
             id._type = builder.INVALID_TYPE;
             return;
         }
-        
-        System.out.println(id._type);
-        
+                
         if(id._type instanceof CTypeArray) {
             
             
@@ -1465,7 +1466,9 @@ public class TypeInferenceVisitor implements CodeVisitor {
             }
             
             // add in a type cast :D
-            cc._argl.set(i, new CodeExprCast(part, expr));
+            CodeExprCast cast = new CodeExprCast(part, expr);
+            cast._scope = expr._scope;
+            cc._argl.set(i, cast);
         }
         
         cc._type = funt._retType;
@@ -1495,7 +1498,7 @@ public class TypeInferenceVisitor implements CodeVisitor {
      * @param is_pointer
      * @return
      */
-    private CType checkField(CodeExpr expr, String field_name, boolean is_pointer) {
+    private CType checkField(CodeExprAccess cc, CodeExpr expr, String field_name, boolean is_pointer) {
         CType tt            = expr._type;
         CTypeCompound ct    = null;
         
@@ -1519,10 +1522,16 @@ public class TypeInferenceVisitor implements CodeVisitor {
         
         // go explore the field
         ct = (CTypeCompound) tt;
+        int i = 0;
         for(CTypeField field : ct._fields) {
             if(0 == field._id._s.compareTo(field_name)) {
+                if(tt._isAddressable) {
+                    field._type._isAddressable = true;
+                }
+                cc._offset = i;
                 return field._type;
             }
+            ++i;
         }
         
         return builder.INVALID_TYPE;
@@ -1530,11 +1539,11 @@ public class TypeInferenceVisitor implements CodeVisitor {
 
     public void visit(CodeExprField cc) {
         cc._ob.acceptVisitor(this);
-        cc._type = checkField(cc._ob, cc._id._s, false);
+        cc._type = checkField(cc, cc._ob, cc._id._s, false);
     }
 
     public void visit(CodeExprPointsTo cc) {
         cc._ptr.acceptVisitor(this);
-        cc._type = checkField(cc._ptr, cc._id._s, true);
+        cc._type = checkField(cc, cc._ptr, cc._id._s, true);
     }
 }

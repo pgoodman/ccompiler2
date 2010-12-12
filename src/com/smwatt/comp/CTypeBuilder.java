@@ -667,6 +667,9 @@ public class CTypeBuilder {
                 //base = new CTypeNamedTypedef(tspec._id);
                 
                 // direct substitution for the typedef
+                if(null == spec._scope) {
+                    spec._scope = env.getScope();
+                }
                 CSymbol sym = spec._scope.get(
                     tspec._id._s, 
                     Type.TYPEDEF_NAME

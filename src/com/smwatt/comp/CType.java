@@ -12,6 +12,7 @@ import java.util.ArrayList;
 
 import com.pag.sym.Env;
 import com.pag.val.CompileTimeInteger;
+import com.smwatt.comp.C.CodeId;
 
 import static com.pag.diag.Message.E_COMOUND_DEPEND_SIZEOF_SELF;
 
@@ -24,7 +25,7 @@ public abstract class CType {
     
     static private int  _next_id       = 0;
     
-    protected int       _id            = 0;
+    public int          _id;
 	public boolean		_isConst 	   = false;
 	public boolean		_isVolatile    = false;
 	public boolean      _isAddressable = false;
@@ -54,12 +55,11 @@ public abstract class CType {
 	}
 	
 	public boolean breaksConstCorrectness(CType that) {
-	    return (
+	    return that._isConst && !this._isConst /*|| (
             _isVolatile && !that._isVolatile
          || _isConst && that._isVolatile
          || _isVolatile && that._isConst
-         || _isConst && !that._isConst
-        );
+        )*/;
 	}
 	
 	// TODO
@@ -156,17 +156,15 @@ public abstract class CType {
         @Override
         public boolean canBeAssignedTo(CType that) {
             return !breaksConstCorrectness(that) && (
-                this._id == that._id
-             || (that instanceof CTypeIntegral /* && (_signed == ((CTypeIntegral) that)._signed)*/ )
-             //|| (that instanceof CTypeFloating) 
+                that instanceof CTypeIntegral
             );
         }
 
         @Override
         public boolean canBeCastTo(CType that) {
-            return that instanceof CTypePointing 
-                || !breaksConstCorrectness(that) && (
-                canBeAssignedTo(that) || (that instanceof CTypePointing)
+            return !breaksConstCorrectness(that) && (
+                    that instanceof CTypePointing 
+                 || that instanceof CTypeArithmetic
             );
         }
 
@@ -204,7 +202,8 @@ public abstract class CType {
 
         @Override
         public boolean canBeCastTo(CType that) {
-            return canBeAssignedTo(that);
+            return !breaksConstCorrectness(that) 
+                && that instanceof CTypeArithmetic;
         }
 
         @Override
@@ -510,12 +509,12 @@ public abstract class CType {
         public void acceptVisitor(CTypeVisitor v) { v.visit(this); }
     }
     
-    public static class CTypeArray extends CTypePointing implements CTypeAdditive {
+    public static class CTypeArray extends CTypePointer {
         public CTypeConstExpr          _optSize;
         
         public CTypeArray(CType elementType, CTypeConstExpr optSize) {
-            super();
-            _pointeeType = elementType;
+            super(elementType);
+            //_pointeeType = elementType;
             _optSize     = optSize;
             _pointeeType._isAddressable = true;
         }
@@ -537,9 +536,7 @@ public abstract class CType {
 
         @Override
         public boolean canBeAssignedTo(CType that) {
-            if(this._id == that._id) {
-                return true;
-            } else if(that instanceof CTypePointing) {
+            if(that instanceof CTypePointing && !breaksConstCorrectness(that)) {
                 return _pointeeType.canBeAssignedTo(
                     ((CTypePointing) that)._pointeeType
                 );
@@ -727,8 +724,22 @@ public abstract class CType {
             return super.copy(new CTypeStruct(_optId, _fields));
         }
     }
-    public static class CTypeUnion extends CTypeCompound { 
+    
+    /**
+     * This is a valid implementation of union types. Any code that depends
+     * on the compiler overlapping the memory of union fields is necessarily
+     * non-portable.
+     * 
+     * @author petergoodman
+     *
+     */
+    public static class CTypeUnion extends CTypeStruct { 
         
+        CTypeUnion(CodeId optId, List<CTypeField> fields) {
+            super(optId, fields);
+        }
+
+        /*    
         CTypeUnion(C.CodeId optId, List<CTypeField> branches) {
             super();
             _optId = optId; 
@@ -774,7 +785,7 @@ public abstract class CType {
         public boolean canBePromotedTo(CType that) {
             return that == this;
         }
-
+    */
         @Override
         public CType copy() {
             return super.copy(new CTypeUnion(_optId, _fields));

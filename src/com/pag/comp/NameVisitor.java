@@ -457,6 +457,8 @@ public class NameVisitor implements CodeVisitor {
         CSymbol sym = env.getSymbol(name);
         CodeId id = cc._id;
         
+        id._scope = cc._scope;
+        
         // function parameter list
         if(in_func_head && 0 < func_param_list_count) {
             visitFuncParam(name, sym, cc.getOptId());
@@ -761,10 +763,12 @@ public class NameVisitor implements CodeVisitor {
     */
 
     public void visit(CodeExprField cc) {
+        cc._scope = env.getScope();
         cc._ob.acceptVisitor(this);
     }
 
     public void visit(CodeExprPointsTo cc) {
+        cc._scope = env.getScope();
         cc._ptr.acceptVisitor(this);
     }
     

@@ -14,6 +14,6 @@ int main() {
 	int f;
 
 	f = factorial(5);
-	printf("The value is %d\n", f);
+	printf("The value is %d\n", f);  /* expect error */
 	return 0;
 }

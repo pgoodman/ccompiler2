@@ -35,4 +35,8 @@ public class SourcePosition implements Comparable<SourcePosition> {
 	public String toString() {
 		return "[\"" + _fname + "\", line " + (_line + 1) + ", column " + _col +"]";
 	}
+	
+	public String getFileName() {
+	    return _fname;
+	}
 }

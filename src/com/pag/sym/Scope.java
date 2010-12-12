@@ -21,6 +21,9 @@ public class Scope {
     static private final int TYPEDEF_NAMES = 1;
     static private final int COMPOUND_TYPES = 2;
     
+    static private int next_id = 0;
+    public final int id;
+    
     private Hashtable<String, CSymbol>[] symbols;
     
     /**
@@ -65,6 +68,7 @@ public class Scope {
             new Hashtable<String,CSymbol>()
         );
         enclosing_func = func;
+        id = ++next_id;
     }
     
     /**
