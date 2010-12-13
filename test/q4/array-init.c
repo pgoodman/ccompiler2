@@ -1,20 +1,10 @@
 
-const int bar = 99;
-const int zz = bar;
-int foo[] = {0, 1};
 
-int test(int x) {
-    int baz = x;
-    return baz;
-}
+int x[2] = {73, 67};
 
-void hello() {
-    foo[0] = bar;
-}
+extern int printf(const char *, ...);
 
 int main(void) {
-    int baz = 7;
-    test(baz);
-    hello();
+    printf("x[0] = %d, x[1] = %d, %d\n", *x, x[1], *"");
     return 0;
 }

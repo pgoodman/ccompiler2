@@ -727,8 +727,7 @@ public class CTypeBuilder {
             }
             if (base instanceof CTypeInt || base instanceof CTypeDouble) {
                 ((CTypeArithmetic) base)._length = longCount - shortCount;
-            }
-            else {
+            } else {
                 env.diag.report(E_SHORT_LONG_NON_INTEGRAL_T, specifiers.get(0));
                 has_error = true;
             }

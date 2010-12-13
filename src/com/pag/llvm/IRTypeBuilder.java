@@ -68,7 +68,7 @@ public class IRTypeBuilder implements CTypeVisitor {
     }
     
     public void visit(CTypeChar ct) {
-        parts.push("i" + Integer.toString(ct.sizeOf(env) * 8));
+        parts.push("i8" /* + Integer.toString(ct.sizeOf(env) * 8)*/);
     }
     
     public void visit(CTypeFloat ct) {
@@ -167,6 +167,12 @@ public class IRTypeBuilder implements CTypeVisitor {
         
         for(CTypeField f : ct._fields) {
             f.acceptVisitor(this);
+            
+            // add padding into the structs for chars
+            if(f._id._type instanceof CTypeChar) {
+                tt += sep + " i24";
+                sep = ",";
+            }
             tt += sep + parts.pop();
             sep = ", ";
         }

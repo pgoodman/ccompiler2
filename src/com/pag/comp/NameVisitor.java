@@ -386,8 +386,19 @@ public class NameVisitor implements CodeVisitor {
         ++func_declarator_count;
         if(null != cc._optFn) {
             cc._optFn.acceptVisitor(this);
+            
+            if(!in_func_head) {
+                CodeId func_id = cc.getOptId();
+                CSymbol func = env.getSymbol(func_id._s);
+                if(null == func) {
+                    env.addSymbol(func_id._s, Type.FUNC_DECL, func_id);
+                } else {
+                    // TODO
+                }
+            }
         }
-        if(null != cc._argl) {
+        
+        if(null != cc._argl && in_func_head) {
             ++func_param_list_count;
             for(Code decl : cc._argl) {
                 if(decl instanceof CodeId) {
@@ -398,6 +409,7 @@ public class NameVisitor implements CodeVisitor {
             }
             --func_param_list_count;
         }
+        
         --func_declarator_count;
     }
 

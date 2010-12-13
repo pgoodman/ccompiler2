@@ -55,7 +55,7 @@ public enum Message {
     
     E_SIGNED_NON_INTEGRAL_T (ERROR,         "Only integral types can be un/signed."),
     E_SHORT_LONG_NON_INTEGRAL_T (ERROR,     "Only integral/floating point types can be short/long."),
-    E_SHORT_LONG_T          (ERROR,         "An integral type cannot be both short and long."),
+    E_SHORT_LONG_T          (ERROR,         "An integral type cannot be more than one short/long specifiers."),
     E_MULTI_SIGNED          (ERROR,         "An integral type can have only one un/signed specifier."),
     E_MULTI_QUALIFIER       (ERROR,         "A type can have only one const/volatile qualifier."),
     E_TOO_MANY_TYPE_SPECS   (ERROR,         "Too many type specifiers in type."),

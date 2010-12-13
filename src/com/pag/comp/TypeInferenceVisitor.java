@@ -6,6 +6,7 @@ import static com.pag.diag.Message.*;
 import java.util.Hashtable;
 import java.util.LinkedList;
 
+import com.pag.llvm.IRTypeBuilder;
 import com.pag.sym.CSymbol;
 import com.pag.sym.Env;
 import com.pag.sym.Type;
@@ -51,6 +52,9 @@ public class TypeInferenceVisitor implements CodeVisitor {
     
     private final CType INVALID_TYPE;
     
+    // LLVM IR type builder
+    private IRTypeBuilder ir_type;
+    
     static {
         // basic types used in substitution expressions
         CHAR_TYPE = new CTypeChar();
@@ -91,6 +95,8 @@ public class TypeInferenceVisitor implements CodeVisitor {
         ZERO_INT._scope = env.getScope();
         ZERO_FLOAT._scope = env.getScope();
         NULL_POINTER._scope = env.getScope();
+        
+        ir_type = new IRTypeBuilder(ee);
     }
     
     /**
@@ -146,6 +152,27 @@ public class TypeInferenceVisitor implements CodeVisitor {
             return expr;
         }
         return null;
+    }
+    
+    private CodeExpr assignTo(CodeExpr expr, CType dt) {
+        
+        CType st = expr._type;
+        
+        if(st instanceof CTypeIntegral && dt instanceof CTypeIntegral) {
+            if((((CTypeIntegral) st)._signed < 0) 
+            != (((CTypeIntegral) dt)._signed < 0)) {
+                return castTo(expr, dt);
+            }
+        }
+        
+        String st_str = ir_type.toString(st);
+        String dt_str = ir_type.toString(dt);
+        
+        if(0 == st_str.compareTo(dt_str)) {
+            return expr;
+        }
+        
+        return castTo(expr, dt);
     }
     
     /**
@@ -1139,6 +1166,8 @@ public class TypeInferenceVisitor implements CodeVisitor {
                 || cc._a._type instanceof CTypeArray
                 || orig_a._type instanceof CTypeArray) {
                     env.diag.report(E_CANT_DO_ASSIGNMENT, cc);
+                } else {
+                    cc._b = assignTo(cc._b, cc._a._type);
                 }
         }
         
@@ -1154,7 +1183,10 @@ public class TypeInferenceVisitor implements CodeVisitor {
             env.diag.report(E_ILLEGAL_CAST, cc);
             cc._type = builder.INVALID_TYPE;
         } else {
-            cc._type = cc._typename._type;
+            cc._type = cc._typename._type.copy();
+            if(!(cc._expr._type instanceof CTypePointing)) {
+                cc._type._isAddressable = false;
+            }
         }
     }
 
@@ -1465,10 +1497,8 @@ public class TypeInferenceVisitor implements CodeVisitor {
                 return;
             }
             
-            // add in a type cast :D
-            CodeExprCast cast = new CodeExprCast(part, expr);
-            cast._scope = expr._scope;
-            cc._argl.set(i, cast);
+            // add in a type cast if necessary
+            cc._argl.set(i, assignTo(expr, argt));
         }
         
         cc._type = funt._retType;
@@ -1524,6 +1554,11 @@ public class TypeInferenceVisitor implements CodeVisitor {
         ct = (CTypeCompound) tt;
         int i = 0;
         for(CTypeField field : ct._fields) {
+            
+            if(field._type instanceof CTypeChar) {
+                ++i; // add in "padding"
+            }
+            
             if(0 == field._id._s.compareTo(field_name)) {
                 if(tt._isAddressable) {
                     field._type._isAddressable = true;

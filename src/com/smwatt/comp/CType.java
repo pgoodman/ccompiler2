@@ -328,7 +328,7 @@ public abstract class CType {
         public int sizeOf(Env e) {
             if(0 == _length) {
                 return 4;
-            } else if(0 < _length) {
+            } else if(_length < 0) {
                 return 4; //Math.min(2, 4 + (2 * _length));
             } else {
                 return 8; //Math.max(8, 4 + (4 * _length));
@@ -360,7 +360,7 @@ public abstract class CType {
 
         @Override
         public int sizeOf(Env e) {
-            return 4; //1;
+            return 1;
         }
 
         @Override
@@ -891,6 +891,9 @@ public abstract class CType {
                 return _size;
             }
             _size = _type.sizeOf(e);
+            if(_type instanceof CTypeChar) {
+                _size += 3;
+            }
             return _size;
         }
     }

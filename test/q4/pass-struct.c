@@ -5,13 +5,14 @@ typedef struct {
     double c;
 } struct_t;
 
-static struct_t foo(struct_t x) {
-    x.c = 10.0;
-    return x;
+static void by_pointer(struct_t *x) {
+    x->c = 10.0;
 }
 
 int main(void) {
+    extern int printf(const char *, ...);
     struct_t test;
-    foo(test);
+    by_pointer(&test);
+    printf("test.c = %f\n", test.c);
     return 0;
 }
