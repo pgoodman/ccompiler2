@@ -498,10 +498,11 @@ public class CTypeBuilder {
                     //       we can self-reference a struct.
                     base = new CTypeStruct(sspec._optId, lfield);
                     sspec._type = base;
+                    int alignments = 0;
                     
                     for (C.Code d: ldecl) {
                         if (d instanceof C.CodeDeclaration) {
-                            fillFields(lfield, (C.CodeDeclaration) d, true, base);
+                            alignments = fillFields(lfield, (C.CodeDeclaration) d, true, base, alignments);
                         } else {
                             env.diag.report(
                                 B_BUG, d, "Invalid code in struct body"
@@ -541,11 +542,12 @@ public class CTypeBuilder {
                     
                     base = new CTypeUnion(uspec._optId, lfield);
                     uspec._type = base;
+                    int alignments = 0;
                     
                     for (C.Code d: ldecl) {
                         
                         if (d instanceof C.CodeDeclaration) {
-                            fillFields(lfield, (C.CodeDeclaration) d, false, base);
+                            alignments = fillFields(lfield, (C.CodeDeclaration) d, false, base, alignments);
                         } else {
                             env.diag.report(B_BUG, d, "Invalid code in union body");
                             return INVALID_TYPE;
@@ -740,15 +742,16 @@ public class CTypeBuilder {
         return base;
     }
     
-    private void fillFields(List<CTypeField> lfield, C.CodeDeclaration dcl, boolean in_struct, CType parent_type) {
+    private int fillFields(List<CTypeField> lfield, C.CodeDeclaration dcl, boolean in_struct, CType parent_type, int last_aligned_at) {
         List<C.CodeSpecifier>  lspec = dcl._lspec;
         List<C.CodeDeclarator> ldtor = dcl._ldtor;
                 
         CType base = formTypeFromSpecifiers(lspec);
+        CTypeField ff;
+        C.CodeId optId;
+        CType t;
         
         for (C.CodeDeclarator dtor: ldtor) {
-            
-            CType t;
             
             // go look for field widths inside of a union, if found, report
             // the error, but proceed assuming
@@ -763,15 +766,28 @@ public class CTypeBuilder {
                 t = formTypeFromDeclarator(base, dtor);
             }
             
-            C.CodeId optId = dtor.getOptId();
             
+            
+            optId = dtor.getOptId();
+
             if(t == parent_type) {
                 env.diag.report(E_COMPOUND_CONTAIN_SELF, dtor);
-                lfield.add(new CTypeField(optId, INVALID_TYPE));
-                
+                ff = new CTypeField(optId, INVALID_TYPE);
             } else {
-                lfield.add(new CTypeField(optId, t));
+                ff = new CTypeField(optId, t);
             }
+            
+            int align = t.alignAt();
+            
+            //System.out.println("; align " + optId._s + " " + align + " against " + last_aligned_at);
+            if(0 != last_aligned_at && align > last_aligned_at) {
+                ff._padding = align - last_aligned_at;
+            }
+            
+            lfield.add(ff);            
+            last_aligned_at = align;
         }
+        
+        return last_aligned_at;
     }
 }

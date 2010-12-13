@@ -73,10 +73,12 @@ public class NameVisitor implements CodeVisitor {
     public void visit(CodeFunction cc) {
         func = cc;
         cc._scope = env.getScope();
-        String name = cc._head.getOptId()._s;
+        
+        CodeId id = cc._head.getOptId();
+        String name = id._s;
         
         if(cc._is_static) {
-            env.addSymbol(name, Type.FUNC_DEF, cc);
+            env.addSymbol(name, Type.FUNC_DEF, id);
         }
         
         cc._internal_scope = env.pushScope(func);
@@ -781,7 +783,7 @@ public class NameVisitor implements CodeVisitor {
 
     public void visit(CodeExprPointsTo cc) {
         cc._scope = env.getScope();
-        cc._ptr.acceptVisitor(this);
+        cc._ob.acceptVisitor(this);
     }
     
 }

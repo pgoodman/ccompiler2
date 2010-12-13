@@ -432,7 +432,7 @@ public class CCodePrinter implements C.CodeVisitor {
 		visit(cc._id);
 	}
 	public void visit(C.CodeExprPointsTo cc) {
-		visit(cc._ptr);
+		visit(cc._ob);
 		_tout.print("->");
 		visit(cc._id);
 	}

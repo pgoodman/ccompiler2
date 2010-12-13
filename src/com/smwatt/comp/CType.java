@@ -97,6 +97,8 @@ public abstract class CType {
 	
 	abstract public int sizeOf(Env e);
 	
+	abstract public int alignAt();
+	
 	// traits through interfaces.. hoorah :P 
 	public interface CTypeComparable { }
 	public interface CTypeAdditive { }
@@ -186,6 +188,11 @@ public abstract class CType {
         public CType copy(CType c) {
             ((CTypeIntegral) c)._signed = _signed;
             return super.copy(c);
+        }
+        
+        @Override
+        public int alignAt() {
+            return 4;
         }
     }
     
@@ -290,6 +297,11 @@ public abstract class CType {
         public CType copy() {
             return this;
         }
+
+        @Override
+        public int alignAt() {
+            return 1;
+        }
     }
     
     public static class CTypeVoid extends CType { 
@@ -318,6 +330,11 @@ public abstract class CType {
         @Override
         public CType copy() {
             return super.copy(new CTypeVoid());
+        }
+
+        @Override
+        public int alignAt() {
+            return 1;
         }
     }
     
@@ -367,6 +384,11 @@ public abstract class CType {
         public CType copy() {
             return super.copy(new CTypeChar());
         }
+        
+        @Override
+        public int alignAt() {
+            return 1;
+        }
     }
     
     public static class CTypeFloat extends CTypeFloating {
@@ -379,6 +401,11 @@ public abstract class CType {
         @Override
         public CType copy() {
             return super.copy(new CTypeFloat());
+        }
+        
+        @Override
+        public int alignAt() {
+            return 8;
         }
     }
     
@@ -393,6 +420,11 @@ public abstract class CType {
         @Override
         public CType copy() {
             return super.copy(new CTypeDouble());
+        }
+        
+        @Override
+        public int alignAt() {
+            return 8;
         }
     }
     
@@ -475,6 +507,10 @@ public abstract class CType {
         public CType copy() {
             return super.copy(new CTypeFunction(_retType, _argTypes, _moreArgs));
         }
+        @Override
+        public int alignAt() {
+            return 1;
+        }
     }
     
     public static class CTypeFunctionPointer extends CTypePointing {
@@ -507,6 +543,11 @@ public abstract class CType {
         }
         
         public void acceptVisitor(CTypeVisitor v) { v.visit(this); }
+
+        @Override
+        public int alignAt() {
+            return 8;
+        }
     }
     
     public static class CTypeArray extends CTypePointer {
@@ -605,6 +646,11 @@ public abstract class CType {
         public CType copy() {
             return super.copy(new CTypePointer(_pointeeType));
         }
+
+        @Override
+        public int alignAt() {
+            return 8;
+        }
     }
     
     public static class CTypeEnum extends CType {
@@ -644,6 +690,11 @@ public abstract class CType {
         @Override
         public CType copy() {
             return super.copy(new CTypeEnum(_optId, _enumerators));
+        }
+
+        @Override
+        public int alignAt() {
+            return 4;
         }
     }
     
@@ -697,8 +748,10 @@ public abstract class CType {
             
             int size = 0;
             _size = -2;
+            int total = 0;
             for(CTypeField field : _fields) {
-                size += field.sizeOf(e);
+                size += field.sizeOf(e, total);
+                total += size;
             }
             _size = size;
             return size;
@@ -722,6 +775,11 @@ public abstract class CType {
         @Override
         public CType copy() {
             return super.copy(new CTypeStruct(_optId, _fields));
+        }
+
+        @Override
+        public int alignAt() {
+            return _fields.get(0)._type.alignAt();
         }
     }
     
@@ -870,11 +928,12 @@ public abstract class CType {
     }
     
     public static class CTypeField {
-        public C.CodeId                _id;
-        public CType                   _type;
+        public C.CodeId                 _id;
+        public CType                    _type;
         
         //CTypeConstExpr          _optWidth = null; // Useful non-null.
-        int                     _size = -1;
+        int                             _size = -1;
+        public int                      _padding = 0;
         
         CTypeField(C.CodeId id, CType type) {
             super();
@@ -886,14 +945,11 @@ public abstract class CType {
         //}
         public void acceptVisitor(CTypeVisitor v) { v.visit(this); }
         
-        public int sizeOf(Env e) {
+        public int sizeOf(Env e, int total) {            
             if(-1 != _size) {
                 return _size;
             }
-            _size = _type.sizeOf(e);
-            if(_type instanceof CTypeChar) {
-                _size += 3;
-            }
+            _size = _type.sizeOf(e) + _padding;
             return _size;
         }
     }

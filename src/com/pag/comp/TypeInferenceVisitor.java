@@ -623,6 +623,15 @@ public class TypeInferenceVisitor implements CodeVisitor {
             if(null != id) {
                 id._type = dtor._type;
                 id._type._isAddressable = true;
+                
+                // give the function a type to start with in the case that we've
+                // forward declared it, used it, but still not defined it.
+                if(0 == func_decl_count) {
+                    CSymbol sym = cc._scope.get(id._s);
+                    if(null == sym.code._type) {
+                        sym.code._type = id._type;
+                    }
+                }
             }
             
             // we need to check the type of constant expressions
@@ -708,7 +717,7 @@ public class TypeInferenceVisitor implements CodeVisitor {
     }
 
     public void visit(CodeFloatingConstant cc) {
-        cc._type = new CTypeDouble();
+        cc._type = new CTypeFloat();
         cc._const_val = new CompileTimeFloat(Double.parseDouble(cc._s));
     }
 
@@ -783,7 +792,7 @@ public class TypeInferenceVisitor implements CodeVisitor {
         }
     }
 
-    public void visit(CodeDeclaratorFunction cc) {
+    public void visit(CodeDeclaratorFunction cc) {        
         ++func_decl_count;
         cc._optFn.acceptVisitor(this);
         
@@ -1408,6 +1417,7 @@ public class TypeInferenceVisitor implements CodeVisitor {
 
     public void visit(CodeExprId cc) {
         CSymbol sym = cc._scope.get(cc._id._s);
+        
         cc._type = sym.code._type;
                 
         // handle function pointers
@@ -1553,9 +1563,11 @@ public class TypeInferenceVisitor implements CodeVisitor {
         // go explore the field
         ct = (CTypeCompound) tt;
         int i = 0;
+        int size = 0;
+        
         for(CTypeField field : ct._fields) {
             
-            if(field._type instanceof CTypeChar) {
+            if(0 != field._padding) {
                 ++i; // add in "padding"
             }
             
@@ -1578,7 +1590,7 @@ public class TypeInferenceVisitor implements CodeVisitor {
     }
 
     public void visit(CodeExprPointsTo cc) {
-        cc._ptr.acceptVisitor(this);
-        cc._type = checkField(cc, cc._ptr, cc._id._s, true);
+        cc._ob.acceptVisitor(this);
+        cc._type = checkField(cc, cc._ob, cc._id._s, true);
     }
 }

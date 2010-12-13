@@ -169,8 +169,8 @@ public class IRTypeBuilder implements CTypeVisitor {
             f.acceptVisitor(this);
             
             // add padding into the structs for chars
-            if(f._id._type instanceof CTypeChar) {
-                tt += sep + " i24";
+            if(0 != f._padding) {
+                tt += sep + "i" + Integer.toString(8 * f._padding);
                 sep = ",";
             }
             tt += sep + parts.pop();
