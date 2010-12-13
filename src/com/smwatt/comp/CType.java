@@ -555,7 +555,6 @@ public abstract class CType {
         
         public CTypeArray(CType elementType, CTypeConstExpr optSize) {
             super(elementType);
-            //_pointeeType = elementType;
             _optSize     = optSize;
             _pointeeType._isAddressable = true;
         }

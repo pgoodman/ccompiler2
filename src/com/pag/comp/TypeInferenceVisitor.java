@@ -627,6 +627,14 @@ public class TypeInferenceVisitor implements CodeVisitor {
                 // give the function a type to start with in the case that we've
                 // forward declared it, used it, but still not defined it.
                 if(0 == func_decl_count) {
+                    
+                    // make sure to const qualify arrays (that aren't in
+                    // the declaration list of a function) so that we can't
+                    // do ++/-- on them.
+                    if(id._type instanceof CTypeArray) {
+                        id._type._isConst = true;
+                    }
+                    
                     CSymbol sym = cc._scope.get(id._s);
                     if(null == sym.code._type) {
                         sym.code._type = id._type;
