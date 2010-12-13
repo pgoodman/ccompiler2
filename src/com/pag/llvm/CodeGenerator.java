@@ -435,7 +435,8 @@ public class CodeGenerator implements CodeVisitor {
     
     public void visit(CodeString cc) {
         StringBuffer buff = new StringBuffer();
-        String temp = global();
+        String mem = global();
+        String str = global();
         
         buff.append(" c\"");
         for(char c : cc._s.toCharArray()) {
@@ -449,10 +450,15 @@ public class CodeGenerator implements CodeVisitor {
         buff.append("\"");
         
         String arr_type = "[" + Integer.toString(cc._s.length()) + " x i8]";
-        gdecl.nl().append(temp).append(" = internal constant ")
+        gdecl.nl().append(mem).append(" = internal constant ")
             .append(arr_type).append(buff.toString());
         
-        temps.push("getelementptr (" + arr_type + "* " + temp + ", i32 0, i32 0)");
+        gdecl.nl().append(str).append(" = constant i8* getelementptr (")
+            .append(arr_type).append("* ").append(mem).append(", i32 0, i32 0)");
+        
+        temps.push(str);
+        
+        //temps.push("getelementptr (" + arr_type + "* " + temp + ", i32 0, i32 0)");
     }
     
     private void visitConstant(CodeExpr cc) {
@@ -556,11 +562,11 @@ public class CodeGenerator implements CodeVisitor {
         String val = temps.pop();
         String var_type = temps.pop();
         String var = temps.pop();
-        if(cc._value._type instanceof CTypePointer) {
-            store(buff, var_type, val, var);
-        } else {
+        //if(cc._value._type instanceof CTypePointer) {
+        //    store(buff, var_type, val, var);
+        //} else {
             store(buff, var_type, load(buff, var_type, val), var);
-        }
+        //}
     }
     
     /**
@@ -854,14 +860,17 @@ public class CodeGenerator implements CodeVisitor {
         String ptr_t_str = ir_type.toString(ptr_t, true);
         String temp = local();
 
+        buff.nl();
+        
         num_var = load(buff, num_t, num_var);
+        String ob = load(buff, ptr_t_str, ptr_var);
         
         buff.nl().append(temp).append(" = getelementptr ")
             .append(ptr_t_str).append(" ")
-            .append(ptr_var).append(", ")
+            .append(ob).append(", ")
             .append(ir_type.toString(num_t)).append(" ").append(num_var);
         
-        temps.push(temp);
+        temps.push(store(buff, ptr_t_str, temp, alloca(buff, ptr_t_str, local())));
     }
     
     public void visit(CodeExprInfix cc) {
@@ -908,7 +917,12 @@ public class CodeGenerator implements CodeVisitor {
         
         switch(cc._op._type) {
             case CTokenType.AMP:
-                buff.nl();
+                temps.push(store(
+                    buff, type, temps.pop(), alloca(
+                        buff, type, local()
+                    )
+                ));
+                /*buff.nl();
                 if(cc._a._type instanceof CTypePointing) {
                     type = ir_type.toString(cc._a._type, true);
                     temps.push(store(
@@ -916,23 +930,23 @@ public class CodeGenerator implements CodeVisitor {
                             buff, type, local()
                         )
                     ));
-                }
+                }*/
                 break;
             case CTokenType.STAR:
                 buff.nl();
                 CTypePointing ptr = (CTypePointing) cc._a._type;
-                String itype = ir_type.toString(ptr._pointeeType, true);
+                String itype = ir_type.toString(ptr, true);
                 
-                if(ptr._pointeeType instanceof CTypePointing) {
+                //if(ptr._pointeeType instanceof CTypePointing) {
                     temps.push(load(buff, itype, temps.pop()));
-                } else {
+                /*} else {
                     temps.push(
                         store(buff, type, 
                             load(buff, itype, temps.pop()), 
                             alloca(buff, type, local())
                         )
                     );
-                }
+                }*/
                 
                 
                 break;
@@ -940,7 +954,7 @@ public class CodeGenerator implements CodeVisitor {
     }
     
     public void visit(CodeExprId cc) {
-        if(cc._type instanceof CTypePointing
+        /*if(cc._type instanceof CTypePointing
         && !(cc._type instanceof CTypeFunctionPointer)) {
             CTypePointing type = (CTypePointing) cc._type;
             String type_str;
@@ -949,13 +963,13 @@ public class CodeGenerator implements CodeVisitor {
                 type_str = ir_type.toString(type, true);
                 temps.push(load(b(cc), type_str, name(cc._id)));
                 return;
-            } /*else if(type._pointeeType instanceof CTypePointing){
+            }*/ /*else if(type._pointeeType instanceof CTypePointing){
                 type_str = ir_type.toString(type._pointeeType, true);
                 temps.push(load(b(cc), type_str, name(cc._id)));
                 return;
             }*/
             
-        }
+        //}
         temps.push(name(cc._id));
     }
     
@@ -975,12 +989,18 @@ public class CodeGenerator implements CodeVisitor {
         CodeBuffer buff = b(cc);
         LinkedList<String> params = new LinkedList<String>();
         
+        //System.out.println("calling function..");
+        int i = 0;
         for(CodeExpr param : cc._argl) {
             param.acceptVisitor(this);
+            
+            //System.out.println("\t" + (++i) + " : " + ir_type.toString(param._type, true));
+            
             params.add(
-                param._type instanceof CTypePointing 
-                 ? temps.pop() 
-                 : load(buff, param._type, temps.pop())
+                load(buff, param._type, temps.pop())
+                //param._type instanceof CTypePointing 
+                // ? temps.pop() 
+                // : load(buff, param._type, temps.pop())
             );
         }
         
@@ -1023,7 +1043,7 @@ public class CodeGenerator implements CodeVisitor {
         String ob = temps.pop();
         String temp = local();
         
-        b(cc).nl().nl().append(temp).append(" = getelementptr ")
+        b(cc).nl().append(temp).append(" = getelementptr ")
             .append(type).append("* ")
             .append(ob).append(", i32 0, i32 ")
             .append(Integer.toString(cc._offset));
@@ -1033,6 +1053,7 @@ public class CodeGenerator implements CodeVisitor {
     
     public void visit(CodeExprField cc) {
         cc._ob.acceptVisitor(this);
+        b(cc).nl();
         visitAccess(cc, ir_type.toString(cc._ob._type, true));
     }
     
@@ -1042,10 +1063,15 @@ public class CodeGenerator implements CodeVisitor {
         
         CTypePointing type = (CTypePointing) cc._ob._type;
         
-        
+        /*
         if(type._pointeeType instanceof CTypePointing) {
             temps.push(load(b(cc), cc._ob._type, temps.pop()));
         }
+        */
+        
+        CodeBuffer buff = b(cc);
+        buff.nl();
+        temps.push(load(buff, cc._ob._type, temps.pop()));
         
         //
         visitAccess(

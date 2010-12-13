@@ -12,7 +12,6 @@ static void by_triple_pointer(struct_t ***z);
 
 static void by_pointer(struct_t *x) {
     x->c = 10.0;
-    x->a = 77;
     (*x).a = 77;
     by_double_pointer(&x);
 }
