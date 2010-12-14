@@ -1,7 +1,7 @@
 
 extern int printf(const char *, ...);
 
-void send(int *from, int *to, int count) {
+send(int *from, int *to, int count) {
     register n=(count+7)/8;
     switch(count%8){
         case 0: do{ *to++ = *from++;

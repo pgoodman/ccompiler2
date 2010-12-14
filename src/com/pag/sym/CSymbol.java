@@ -20,6 +20,8 @@ public class CSymbol {
     /// scope that this symbol was defined in
     public Scope scope;
     
+    public boolean is_static = false;
+    
     /// the type of the code node / expression / statement
     //public CType type_of_code;
     

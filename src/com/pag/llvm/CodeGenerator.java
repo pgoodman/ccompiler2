@@ -187,7 +187,7 @@ public class CodeGenerator implements CodeVisitor {
             return "@" + id._s;
         }
         
-        return (0 == sym.scope.depth ? "@" : "%") 
+        return (0 == sym.scope.depth || sym.is_static ? "@" : "%") 
              + id._s + "$" + Integer.toString(sym.scope.id);
     }
     
@@ -205,7 +205,12 @@ public class CodeGenerator implements CodeVisitor {
     
     private String alloca(CodeBuffer buff, String tt, String var) {
         var = null == var ? local() : var;
-        buff.nl().append(var).append(" = alloca ").append(tt).append(", align 8");
+        if(buff == gdecl) {
+            gdecl.nl().append(var).append(" = global ").append(tt)
+                 .append(" undef");
+        } else {
+            buff.nl().append(var).append(" = alloca ").append(tt).append(", align 8");
+        }
         return var;
     }
     
@@ -214,18 +219,7 @@ public class CodeGenerator implements CodeVisitor {
     }
     
     private String alloca(Code cc, String tt, String var) {
-        var = null == var ? local() : var;
-        // global
-        if(0 == cc._scope.depth) {
-            gdecl.nl().append(var).append(" = global ").append(tt)
-                 .append(" undef");
-            
-        // local
-        } else {
-            alloca(code, tt, var);
-        }
-        
-        return var;
+        return alloca(0 == cc._scope.depth ? gdecl : b(cc), tt, var);
     }
     
     private String load(CodeBuffer buff, CType tt, String from_loc) {
@@ -393,6 +387,17 @@ public class CodeGenerator implements CodeVisitor {
     
     public void visit(CodeDeclaration cc) {
         CodeBuffer buff = 0 == cc._scope.depth ? gdecl : code;
+        CodeBuffer alloca_buff = buff;
+        for(CodeSpecifier spec : cc._lspec) {
+            if(spec instanceof CodeSpecifierStorage) {
+                CodeSpecifierStorage stor = (CodeSpecifierStorage) spec;
+                if(CTokenType.STATIC == stor._spec._type) {
+                    alloca_buff = gdecl;
+                    break;
+                }
+            }
+        }
+        
         for(CodeDeclarator dtor : cc._ldtor) {
             
             if(null == dtor) {
@@ -409,12 +414,13 @@ public class CodeGenerator implements CodeVisitor {
             } else {
                 CodeId id = dtor.getOptId();
                 String type = ir_type.toString(id._type);
+                String var = name(id);
                 
                 if(dtor._type instanceof CTypeArray) {
                     String loc = local(cc);
                     String ptr_type = ir_type.toString(id._type, true);
-                    String var = name(id);
-                    alloca(cc, type, loc);
+                    
+                    alloca(alloca_buff, type, loc);
                     
                     if(gdecl == buff) {
                         buff.nl().append(var).append(" = ")
@@ -432,11 +438,12 @@ public class CodeGenerator implements CodeVisitor {
                         store(buff, ptr_type, temp, var);
                     }
                 } else {
-                    alloca(cc, type, name(id));
+                    alloca(alloca_buff, type, var);
                 }
                 
                 buff.nl();
-                
+
+                temps.push(var);
                 if(dtor instanceof CodeDeclaratorInit) {
                     dtor.acceptVisitor(this);
                 }
@@ -566,7 +573,7 @@ public class CodeGenerator implements CodeVisitor {
         CodeId id = cc.getOptId();
         
         b(cc).nl().nl().append("; initializer");
-        temps.push(name(id));
+        //temps.push(name(id));
         temps.push(ir_type.toString(id._type, true));
         cc._initializer.acceptVisitor(this);
     }
@@ -574,10 +581,13 @@ public class CodeGenerator implements CodeVisitor {
     public void visit(CodeInitializerValue cc) {
         cc._value.acceptVisitor(this);
         
-        CodeBuffer buff = b(cc);
+        
         String val = temps.pop();
         String var_type = temps.pop();
         String var = temps.pop();
+        
+        CodeBuffer buff = '@' == var.charAt(0) ? gdef : b(cc);
+        
         store(buff, var_type, load(buff, var_type, val), var);
     }
     
@@ -590,10 +600,11 @@ public class CodeGenerator implements CodeVisitor {
      */
     public void visit(CodeInitializerList cc) {
         
-        CodeBuffer buff = b(cc);
         String var_type = temps.pop();
         String var = temps.pop();
         String list_type = ir_type.toString(cc._type, true);
+        
+        CodeBuffer buff = '@' == var.charAt(0) ? gdef : b(cc);
         
         String im = load(buff, var_type, var);
         String internal_type = ir_type.toString(cc._type.getInternalType());

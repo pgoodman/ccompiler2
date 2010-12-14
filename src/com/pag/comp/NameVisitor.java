@@ -6,6 +6,7 @@ import static com.pag.diag.Message.*;
 import com.pag.sym.CSymbol;
 import com.pag.sym.Env;
 import com.pag.sym.Type;
+import com.smwatt.comp.CTokenType;
 import com.smwatt.comp.C.CodeDeclaratorFunction;
 import com.smwatt.comp.C.CodeDeclaratorParen;
 
@@ -50,6 +51,7 @@ public class NameVisitor implements CodeVisitor {
     private int func_declarator_count = 0;
     private int func_param_list_count = 0;
     private int pointer_declarator_count = 0;
+    private int static_count = 0;
     
     // special counters + toggle to figure out if we're currently in a struct
     // or a union.
@@ -129,11 +131,12 @@ public class NameVisitor implements CodeVisitor {
         is_forward_declaration = (null == cc._ldtor || cc._ldtor.isEmpty());
         
         boolean found_typedef = false;
+        int old_static_count = static_count;
         
         if(null != cc._lspec) {
             for(CodeSpecifier spec : cc._lspec) {
                 found_typedef = !in_typedef && (found_typedef || spec.isTypedef());
-                spec.acceptVisitor(this);
+                spec.acceptVisitor(this);                
             }
         }
         
@@ -146,6 +149,8 @@ public class NameVisitor implements CodeVisitor {
                 }
             }
         }
+        
+        static_count = old_static_count;
         
         in_typedef = false;
         is_forward_declaration = false;
@@ -206,6 +211,9 @@ public class NameVisitor implements CodeVisitor {
 
     public void visit(CodeSpecifierStorage cc) {
         cc._scope = env.getScope();
+        if(CTokenType.STATIC == cc._spec._type) {
+            ++static_count;
+        }
     }
 
     public void visit(CodeSpecifierQualifier cc) {
@@ -495,7 +503,7 @@ public class NameVisitor implements CodeVisitor {
             if(null != sym && sym.scope == cc._scope) {
                 env.diag.report(E_FIELD_REDEF, cc, name, sym.code.getSourcePosition());
             } else {
-                env.addSymbol(name, Type.FIELD, cc);
+                sym = env.addSymbol(name, Type.FIELD, cc);
             }
             
         // global scope or function body, symbol with same name exists
@@ -554,11 +562,12 @@ public class NameVisitor implements CodeVisitor {
         } else if(0 == func_declarator_count || pointer_declarator_count > 0) {
             //System.out.println("name=" + name +" in_typedef=" + in_typedef + " cc._is_typedef=" + cc._is_typedef);
             cc._is_typedef = in_typedef || cc._is_typedef;
-            env.addSymbol(
+            sym = env.addSymbol(
                 name, 
                 cc._is_typedef ? Type.TYPEDEF_NAME : Type.VARIABLE, 
                 cc._id
             );
+            sym.is_static = 0 != static_count;
         }
     }
 
