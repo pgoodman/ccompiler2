@@ -146,4 +146,20 @@ public class CToken {
 		default:          	return "<:UNHANDLED:>";
 		}
 	}
+	
+    public int opAsInfix() {
+        switch(_type) {
+            case CTokenType.STAR_ASSIGN: return CTokenType.STAR;
+            case CTokenType.SLASH_ASSIGN: return CTokenType.SLASH;
+            case CTokenType.MOD_ASSIGN: return CTokenType.MOD;
+            case CTokenType.PLUS_ASSIGN: return CTokenType.PLUS;
+            case CTokenType.MINUS_ASSIGN: return CTokenType.MINUS;
+            case CTokenType.LSH_ASSIGN: return CTokenType.LSH;
+            case CTokenType.RSH_ASSIGN: return CTokenType.RSH;
+            case CTokenType.AMP_ASSIGN: return CTokenType.AMP;
+            case CTokenType.XOR_ASSIGN: return CTokenType.XOR;
+            case CTokenType.VBAR_ASSIGN: return CTokenType.VBAR;
+        }
+        return 0;
+    }
 }

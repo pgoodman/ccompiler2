@@ -699,17 +699,38 @@ public class CodeGenerator implements CodeVisitor {
     public void visit(CodeExprAssignment cc) {
         cc._a.acceptVisitor(this);
         cc._b.acceptVisitor(this);
-
-        String val = temps.pop();
-        String ob = temps.pop();
-        String val_type = ir_type.toString(cc._b._type, true);
         
-        if(CTokenType.ASSIGN == cc._op._type) {
-            store(b(cc), val_type, load(b(cc), val_type, val), ob);
+        String right_addr = temps.pop();
+        String left_addr = temps.pop();
+        
+        CType ta = cc._a._type;
+        CType tb = cc._b._type;
+        String result_type = ir_type.toString(cc._type, true);
+        
+        CodeBuffer buff = b(cc);
+        
+        buff.nl().nl().append("; assignment op");
+        
+        if(CTokenType.ASSIGN != cc._op._type) {
+            visitInfix(
+                buff, 
+                cc._op.opAsInfix(), 
+                load(buff, result_type, left_addr), 
+                right_addr, 
+                ta, 
+                tb, 
+                result_type
+            );
+            right_addr = temps.pop();
         }
-        // TODO
-        // TODO
-        // TODO
+
+        store(
+            buff, result_type, 
+            load(buff, result_type, right_addr), 
+            left_addr
+        );
+        
+        temps.push(left_addr);
     }
     
     public void visit(CodeExprCast cc) {
@@ -899,118 +920,42 @@ public class CodeGenerator implements CodeVisitor {
      */
     private void visitPointerArithmetic(
         CodeBuffer buff, 
-        CodeExpr ptr, String ptr_var, 
-        CodeExpr num, String num_var
+        String ptr_t, String ptr_val, 
+        String num_t, String num_val
     ) {
-        CTypePointing ptr_t = (CTypePointing) ptr._type;
-        CTypeIntegral num_t = (CTypeIntegral) num._type;
-        
-        String ptr_t_str = ir_type.toString(ptr_t, true);
         String temp = local();
         
-        num_var = load(buff, num_t, num_var);
-        String ob = load(buff, ptr_t_str, ptr_var);
+        //num_var = load(buff, num_t, num_var);
+        //String ob = load(buff, ptr_t_str, ptr_var);
         
         buff.nl().append(temp).append(" = getelementptr ")
-            .append(ptr_t_str).append(" ")
-            .append(ob).append(", ")
-            .append(ir_type.toString(num_t)).append(" ").append(num_var);
+            .append(ptr_t).append(" ")
+            .append(ptr_val).append(", ")
+            .append(num_t).append(" ").append(num_val);
         
-        temps.push(store(buff, ptr_t_str, temp, alloca(buff, ptr_t_str, local())));
+        temps.push(store(buff, ptr_t, temp, alloca(buff, ptr_t, local())));
     }
     
-    public void visit(CodeExprInfix cc) {
-        CType ta = cc._a._type;
-        CType tb = cc._b._type;
+    private void visitInfix(CodeBuffer buff, int op, String left, String right_addr, CType ta, CType tb, String result_type) {
         
-        CodeBuffer buff = b(cc);
-        
-        cc._a.acceptVisitor(this);
-        String left_addr = temps.pop();
-        String right_addr;
-        
-        buff.nl().nl().append("; infix op");
+        String left_type = ir_type.toString(ta, true);
+        String right_type = ir_type.toString(tb, true);
+        String right = load(buff, right_type, right_addr);
         
         // deal with pointer arithmetic
-        switch(cc._op._type) {
-            case CTokenType.COMMA:
-                cc._b.acceptVisitor(this);
-                temps.push(temps.pop());
-                return;
+        switch(op) {
+            
             case CTokenType.PLUS:
                 if(ta instanceof CTypePointing) {
-                    cc._b.acceptVisitor(this);
-                    visitPointerArithmetic(buff, cc._a, left_addr, cc._b, temps.pop());
+                    visitPointerArithmetic(buff, left_type, left, right_type, right);
                     return;
                 } else if(tb instanceof CTypePointing) {
-                    cc._b.acceptVisitor(this);
-                    visitPointerArithmetic(buff, cc._b, temps.pop(), cc._a, left_addr);
+                    visitPointerArithmetic(buff, right_type, right, left_type, left);
                     return;
                 }
         }
         
-        String left_type = ir_type.toString(ta, true);
-        String right_type = ir_type.toString(tb, true);
-        String result_type = ir_type.toString(cc._type, true);
         
-        String left = load(buff, left_type, left_addr);
-        String right = null;
-        
-        // deal with the short-circuiting operators
-        switch(cc._op._type) {
-            case CTokenType.VBAR_VBAR: {
-                String init = label();
-                String if_no = label();
-                String done = label();
-                String res_addr = alloca(buff, left_type, local());
-                
-                br(buff, init);
-                buff.label(init);
-                br(buff, binary(buff, "icmp eq", left_type, "1", left), done, if_no);
-                
-                buff.label(if_no);
-                cc._b.acceptVisitor(this);
-                
-                String rhs_val = load(buff, right_type, temps.pop());
-                br(buff, done);
-                
-                buff.label(done);
-                store(buff, result_type, binary(
-                    buff, "phi", "i32", "[1, %" + init +"]", "[" + rhs_val + ", %" + if_no +"]" 
-                ), res_addr);
-                temps.push(res_addr);
-                
-                return;
-            }
-            case CTokenType.AMP_AMP: {
-                String if_yes = label();
-                String if_no = label();
-                String done = label();
-                String res_addr = alloca(buff, left_type, local());
-                
-                br(buff, if_no); // annoying hack
-                buff.label(if_no);
-                br(buff, binary(buff, "icmp eq", left_type, "1", left), if_yes, done);
-                
-                buff.label(if_yes);
-                cc._b.acceptVisitor(this);
-                
-                String rhs_val = load(buff, right_type, temps.pop());
-                br(buff, done);
-                
-                buff.label(done);
-                store(buff, result_type, binary(
-                    buff, "phi", "i32", "[0, %" + if_no +"]", "[" + rhs_val + ", %" + if_yes +"]" 
-                ), res_addr);
-                temps.push(res_addr);
-                return;
-            }
-        }
-        
-        cc._b.acceptVisitor(this);
-        right_addr = temps.pop();
-        
-        right = load(buff, right_type, right_addr);
         String result_addr = alloca(buff, result_type, local());
         String result = null;
         String sign_prefix = "";
@@ -1027,7 +972,7 @@ public class CodeGenerator implements CodeVisitor {
             ptr_prefix = "f";
         }
         
-        switch(cc._op._type) {
+        switch(op) {
             case CTokenType.VBAR:
                 result = binary(buff, "or", result_type, left, right);
                 break;
@@ -1120,6 +1065,87 @@ public class CodeGenerator implements CodeVisitor {
         }
         store(buff, result_type, result, result_addr);
         temps.push(result_addr);
+    }
+    
+    public void visit(CodeExprInfix cc) {
+        CType ta = cc._a._type;
+        CType tb = cc._b._type;
+        
+        CodeBuffer buff = b(cc);
+        
+        cc._a.acceptVisitor(this);
+        String left_addr = temps.pop();
+        String right_addr;
+        
+        buff.nl().nl().append("; infix op");
+        
+        String left_type = ir_type.toString(ta, true);
+        String right_type = ir_type.toString(tb, true);
+        String result_type = ir_type.toString(cc._type, true);
+        
+        String left = load(buff, left_type, left_addr);
+        String right = null;
+        
+        // deal with the short-circuiting operators
+        switch(cc._op._type) {
+            case CTokenType.VBAR_VBAR: {
+                String init = label();
+                String if_no = label();
+                String done = label();
+                String res_addr = alloca(buff, left_type, local());
+                
+                br(buff, init);
+                buff.label(init);
+                br(buff, binary(buff, "icmp eq", left_type, "1", left), done, if_no);
+                
+                buff.label(if_no);
+                cc._b.acceptVisitor(this);
+                
+                String rhs_val = load(buff, right_type, temps.pop());
+                br(buff, done);
+                
+                buff.label(done);
+                store(buff, result_type, binary(
+                    buff, "phi", "i32", "[1, %" + init +"]", "[" + rhs_val + ", %" + if_no +"]" 
+                ), res_addr);
+                temps.push(res_addr);
+                
+                return;
+            }
+            case CTokenType.AMP_AMP: {
+                String if_yes = label();
+                String if_no = label();
+                String done = label();
+                String res_addr = alloca(buff, left_type, local());
+                
+                br(buff, if_no); // annoying hack
+                buff.label(if_no);
+                br(buff, binary(buff, "icmp eq", left_type, "1", left), if_yes, done);
+                
+                buff.label(if_yes);
+                cc._b.acceptVisitor(this);
+                
+                String rhs_val = load(buff, right_type, temps.pop());
+                br(buff, done);
+                
+                buff.label(done);
+                store(buff, result_type, binary(
+                    buff, "phi", "i32", "[0, %" + if_no +"]", "[" + rhs_val + ", %" + if_yes +"]" 
+                ), res_addr);
+                temps.push(res_addr);
+                return;
+            }
+            case CTokenType.COMMA: {
+                cc._b.acceptVisitor(this);
+                temps.push(temps.pop());
+                return;
+            }
+        }
+        
+        cc._b.acceptVisitor(this);
+        right_addr = temps.pop();
+        
+        visitInfix(buff, cc._op._type, left, right_addr, ta, tb, result_type);
     }
     
     public void visit(CodeExprParen cc) {
@@ -1327,7 +1353,6 @@ public class CodeGenerator implements CodeVisitor {
     
     public void visit(CodeExprPointsTo cc) {
         cc._ob.acceptVisitor(this);
-        CTypePointing type = (CTypePointing) cc._ob._type;
         CodeBuffer buff = b(cc);
         buff.nl().nl().append("; pointer access");
         temps.push(load(buff, cc._ob._type, temps.pop()));

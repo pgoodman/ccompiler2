@@ -13,6 +13,7 @@ import com.pag.sym.Type;
 import com.pag.val.CompileTimeFloat;
 import com.pag.val.CompileTimeInteger;
 import com.pag.val.CompileTimeString;
+import com.smwatt.comp.CToken;
 import com.smwatt.comp.CTokenOperator;
 import com.smwatt.comp.CTokenType;
 import com.smwatt.comp.CTypeBuilder;
@@ -1155,7 +1156,7 @@ public class TypeInferenceVisitor implements CodeVisitor {
         
         CType rhs_type = cc._b._type;
         CodeExpr orig_a = cc._a;
-        int op_as_infix = 0;
+        int op_as_infix = cc._op.opAsInfix();
         
         // translate the operators into operators on infix expression
         switch(cc._op._type) {
