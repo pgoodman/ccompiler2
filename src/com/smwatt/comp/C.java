@@ -459,6 +459,7 @@ public class C {
     	    _optFn = optFn; _argl = argl; 
     	    copyPosition(optFn);
     	    copyPosition(argl);
+
 	    }
     	
     	public void acceptVisitor(CodeVisitor v) { v.visit(this); }

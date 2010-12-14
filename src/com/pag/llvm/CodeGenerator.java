@@ -493,7 +493,8 @@ public class CodeGenerator implements CodeVisitor {
         if(null == val) {
             val = global();
             gdecl.nl().append(val).append(" = internal constant ")
-                .append(type).append(" ").append(const_val);
+                .append(type).append(" ").append(const_val)
+                .append(", align 8");
             const_table.put(key, val);
         }
         temps.push(val);
@@ -1439,7 +1440,7 @@ public class CodeGenerator implements CodeVisitor {
                 } else if(tt instanceof CTypeIntegral) {
                     temp = binary(buff, "add", tt_str, incr, val);
                 } else if(tt instanceof CTypeFloating) {
-                    temp = binary(buff, "add", tt_str, incr + ".0", val);
+                    temp = binary(buff, "fadd", tt_str, incr + ".0", val);
                 }
                 
                 temps.push(store(buff, tt_str, temp, val_addr));

@@ -13,6 +13,7 @@ public enum Message {
     
     E_UNDECLARED_VAR        (ERROR,         "The variable '%%' was never declared."),
     E_MULTIPLY_DECLARED_VAR (ERROR,         "The variable '%%' was already declared at %%."),
+    E_VOID_VAR              (ERROR,         "The variable '%%' cannot have type void."),
     
     R_TOP_LEVEL_LABEL       (RECOVERABLE,   "Labels are not allowed in the top-level scope. Found label '%%'."),
     R_TOP_LEVEL_STAT        (RECOVERABLE,   "If/Else/Return/Break/Continue/Switch/Default/Goto/For/While/Do..While/Case\n    statements are not allowed in the top-level scope."),
@@ -77,6 +78,7 @@ public enum Message {
     E_COMPOUND_CONTAIN_SELF (ERROR,         "A compound type (struct,union) cannot contain itself as a field. To do this,\n    use a pointer to itself."),
     E_COMOUND_DEPEND_SIZEOF_SELF(ERROR,     "A compound type (struct,union) depends on the size of itself. For example: \n    struct foo {\n        int bar[sizeof(struct foo);\n    }"),
     E_SYMBOL_FUNC_TYPE      (ERROR,         "This symbol cannot have a function type. Did you mean to use a function pointer?"),
+    E_FUNC_RETURN_FUNC      (ERROR,         "Functions are not allowed to return functions. Did you mean to return a function pointer?"),
     
     E_NON_CONSTANT_EXPR     (ERROR,         "Cannot evaluate non-constant expression."),
     
@@ -124,7 +126,7 @@ public enum Message {
     E_INIT_LIST_TOO_LONG    (ERROR,         "The initializer list is too long for array type declared."),
     E_INIT_LIST_NOT_DIVISIBLE(ERROR,        "The length initializer list is not a multiple of the specified dimensions of the array."),
     E_INIT_LIST_AUTO        (ERROR,         "Can't automatically initialize the missing values in the initializer list."),
-    
+        
     B_BUG                   (BUG,           "The following bug was reported: %%."),;
     
     public final Type type;

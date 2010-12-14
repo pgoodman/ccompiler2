@@ -16,11 +16,6 @@ import com.smwatt.comp.C.CodeId;
 
 import static com.pag.diag.Message.E_COMOUND_DEPEND_SIZEOF_SELF;
 
-// !!!
-// !!! simplifying assumption: all types with size < 4 bytes are rounded up
-// !!! to 4 bytes. the standard only guarantees minimum sizes ;)
-// !!!
-
 public abstract class CType { 
     
     static private int  _next_id       = 0;
@@ -785,6 +780,7 @@ public abstract class CType {
 
         @Override
         public int sizeOf(Env e) {
+            
             if(0 <= _size) {
                 return _size;
                 

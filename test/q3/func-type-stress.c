@@ -11,7 +11,7 @@ typedef int (foo)(float);
  *          returning function (pointer to void, pointer to void)
  *              returning int
  */
-typedef int (((bar(char *)))(int *))(void *, void *);
+typedef int (((bar(char *)))(int *))(void *, void *); /* expect error */
 
 /*
  * declare fizz as function (pointer to float)

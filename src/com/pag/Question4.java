@@ -58,7 +58,9 @@ public class Question4 {
                 CodeGenerator gen = new CodeGenerator(env);
                 gen.visit(code);
                 
-                System.out.println(gen.toString());
+                if(!Reporter.errorReported()) {
+                    System.out.println(gen.toString());
+                }
                 
                 return false;
             }

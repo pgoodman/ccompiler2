@@ -4,7 +4,7 @@ struct {
 };
 
 int main() {
-    int (baz)(); /* expect error */
+    int (baz)();
 
     typedef int bar;
     typedef int (fizz)();

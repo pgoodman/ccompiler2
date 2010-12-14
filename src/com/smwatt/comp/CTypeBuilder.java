@@ -113,7 +113,6 @@ public class CTypeBuilder {
         } else if (dtor instanceof C.CodeDeclaratorFunction) {
             // E.g. int (**f)(char,...) => base=int, dtor=(**f)(char,...)
             C.CodeDeclaratorFunction fdtor = (C.CodeDeclaratorFunction) dtor;
-            
             CTypeFunction func_type = new CTypeFunction();
             CType yield_type = func_type;            
             CType retType = base;
@@ -202,6 +201,11 @@ public class CTypeBuilder {
             
             if (hadId) {
                 argTypes = null;
+            }
+            
+            if(retType instanceof CTypeFunction) {
+                env.diag.report(E_FUNC_RETURN_FUNC, fdtor);
+                return INVALID_TYPE;
             }
             
             func_type.init(retType, argTypes, hadDotDotDot);
@@ -400,9 +404,9 @@ public class CTypeBuilder {
         int longCount       = 0;
         int shortCount      = 0;
         boolean has_error   = false;
-        
+                
         for (C.CodeSpecifier spec: specifiers) {
-                        
+                                    
             if (spec instanceof C.CodeSpecifierType) {
                 C.CodeSpecifierType tspec = (C.CodeSpecifierType) spec;
                 
@@ -490,14 +494,20 @@ public class CTypeBuilder {
                 C.CodeSpecifierStruct sspec = (C.CodeSpecifierStruct) spec;
                 if (sspec._optParts != null) {
                     
-                    List<? extends C.Code> ldecl = sspec._optParts;
+                    // already computed the type
+                    if(null != sspec._type) {
+                        base = sspec._type;
+                        continue;
+                    }
                     
+                    List<? extends C.Code> ldecl = sspec._optParts;
                     ArrayList<CTypeField> lfield = new ArrayList<CTypeField>();
                     
                     // note: putting before we expand out the inside so that
                     //       we can self-reference a struct.
                     base = new CTypeStruct(sspec._optId, lfield);
                     sspec._type = base;
+                                        
                     int alignments = 0;
                     
                     for (C.Code d: ldecl) {
@@ -511,13 +521,13 @@ public class CTypeBuilder {
                         }
                     }
                     
-                    
                 } else if (sspec._optId != null) {
-                    //base = new CTypeNamedStruct(sspec._optId);
-                    base = sspec._scope.get(
+                    sspec = (C.CodeSpecifierStruct) sspec._scope.get(
                         sspec._optId._s, Type.STRUCT_NAME
-                    ).code._type;
-                
+                    ).code;
+                    
+                    base = sspec._type;
+                                        
                 } else {
                     env.diag.report(
                         B_BUG, spec, "Struct missing name and body"
@@ -779,7 +789,6 @@ public class CTypeBuilder {
             
             int align = t.alignAt();
             
-            //System.out.println("; align " + optId._s + " " + align + " against " + last_aligned_at);
             if(0 != last_aligned_at && align > last_aligned_at) {
                 ff._padding = align - last_aligned_at;
             }

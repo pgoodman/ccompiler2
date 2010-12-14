@@ -511,8 +511,9 @@ public class TypeInferenceVisitor implements CodeVisitor {
         
         // make sure we're not using function types
         if(cc._type instanceof CTypeFunction
-        && null == cc.getOptFunction()) {
-            env.diag.report(E_SYMBOL_FUNC_TYPE, cc);
+        && null == cc.getOptFunction()
+        && !cc._is_typedef) {
+            env.diag.report(E_SYMBOL_FUNC_TYPE, id, cc);
             cc._type = builder.INVALID_TYPE;
             if(null != id) {
                 id._type = cc._type;
@@ -654,8 +655,14 @@ public class TypeInferenceVisitor implements CodeVisitor {
             // set before we explore the declarator so that we have the
             // type of the id if we have an initializer
             if(null != id) {
-                id._type = dtor._type;
-                id._type._isAddressable = true;
+                
+                if(dtor._type instanceof CTypeVoid) {
+                    env.diag.report(E_VOID_VAR, id, id._s);
+                    id._type = builder.INVALID_TYPE;
+                } else {
+                    id._type = dtor._type;
+                    id._type._isAddressable = true;
+                }
                 
                 // give the function a type to start with in the case that we've
                 // forward declared it, used it, but still not defined it.
@@ -702,16 +709,16 @@ public class TypeInferenceVisitor implements CodeVisitor {
             }
         }
         
-        // we need to check the type of constant expressions (e.g. in
-        // enums, array dimensions, etc.
-        for(CodeSpecifier spec : cc._lspec) {
-            spec.acceptVisitor(this);
-        }
-        
         // make sure we can typecheck specifiers even in the absence of
         // a declarator
         if(cc._ldtor.isEmpty()) {
             cc._type = builder.formTypeFromSpecifiers(cc._lspec);
+        }
+        
+        // we need to check the type of constant expressions (e.g. in
+        // enums, array dimensions, etc.
+        for(CodeSpecifier spec : cc._lspec) {
+            spec.acceptVisitor(this);
         }
     }
 
@@ -721,9 +728,11 @@ public class TypeInferenceVisitor implements CodeVisitor {
         for(CodeSpecifier spec : cc._lspec) {
             spec.acceptVisitor(this);
         }
+                
         if(null != cc._dtor) {
             cc._dtor.acceptVisitor(this);
         }
+        
         cc._type = builder.formType(cc._lspec, cc._dtor);
     }
 
@@ -857,6 +866,7 @@ public class TypeInferenceVisitor implements CodeVisitor {
                 }
             }
         }
+        
         --func_decl_count;
     }
 
@@ -1003,7 +1013,12 @@ public class TypeInferenceVisitor implements CodeVisitor {
     }
 
     public void visit(CodeDeclaratorId cc) {
-        //cc._id._type._isAddressable = true;
+        
+        // not allowed function types as fields
+        if(0 < compound_count && cc._id._type instanceof CTypeFunction) {
+            env.diag.report(E_SYMBOL_FUNC_TYPE, cc);
+            cc._id._type = builder.INVALID_TYPE;
+        }
     }
 
     public void visit(CodePointerStar cc) {
@@ -1165,7 +1180,7 @@ public class TypeInferenceVisitor implements CodeVisitor {
         
         // make sure the return types are okay
         if(!cc._type.canBeAssignedTo(((CTypeFunction) cc._func._type)._retType)) {
-            
+            env.diag.report(E_BAD_RETURN_TYPE, cc);
         }
     }
 
@@ -1493,11 +1508,10 @@ public class TypeInferenceVisitor implements CodeVisitor {
         env.addPhase(new ParseTreeNodePhase(cc) {
             public boolean apply(Env env, Code code) {
                 CodeExprSizeofValue val = (CodeExprSizeofValue) node;
-                if(null == val._const_val) {
-                    val._const_val = new CompileTimeInteger(val._expr._type.sizeOf(env));                
-                    if(Env.DEBUG) {
-                        System.out.println("DEBUG: sizeof(expr) " + val + " = " + val._const_val.toString());
-                    }
+                
+                val._const_val = new CompileTimeInteger(val._expr._type.sizeOf(env));                
+                if(Env.DEBUG) {
+                    System.out.println("DEBUG: sizeof(expr) " + val + " = " + val._const_val.toString());
                 }
                 return true;
             }
@@ -1508,15 +1522,13 @@ public class TypeInferenceVisitor implements CodeVisitor {
     }
 
     public void visit(CodeExprSizeofType cc) {
-
+        
         env.addPhase(new ParseTreeNodePhase(cc) {
             public boolean apply(Env env, Code code) {
                 CodeExprSizeofType ty = (CodeExprSizeofType) node;
-                if(null == ty._const_val) {
-                    ty._const_val = new CompileTimeInteger(ty._tname._type.sizeOf(env));                
-                    if(Env.DEBUG) {
-                        System.out.println("DEBUG: sizeof(type) " + ty + " = " + ty._const_val.toString());
-                    }
+                ty._const_val = new CompileTimeInteger(ty._tname._type.sizeOf(env));                
+                if(Env.DEBUG) {
+                    System.out.println("DEBUG: sizeof(type) " + ty + " = " + ty._const_val.toString());
                 }
                 return true;
             }
