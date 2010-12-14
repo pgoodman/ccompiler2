@@ -7,8 +7,14 @@ typedef struct {
     double y;
 } struct_t;
 
+extern int printf(const char *, ...);
+
 static void by_double_pointer(struct_t **y);
 static void by_triple_pointer(struct_t ***z);
+
+static void by_value(struct_t test) {
+    printf("a = %d, b = %f, c = %lf, z = %c\n", test.a, test.b, test.c, test.z);
+}
 
 static void by_pointer(struct_t *x) {
     x->c = 10.0;
@@ -26,13 +32,14 @@ static void by_triple_pointer(struct_t ***z) {
 }
 
 int main(void) {
-    extern int printf(const char *, ...);
     struct_t test, *test_addr = &test;
     test.a = 9;
     by_pointer(&test);
 
 
     printf("a = %d, b = %f, c = %lf, z = %c\n", test.a, test.b, test.c, test.z);
+
+    by_value(test);
 
     return 0;
 }
