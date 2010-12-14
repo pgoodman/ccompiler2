@@ -233,6 +233,9 @@ public abstract class CType {
         public boolean canBeCastTo(CType that) {
             
             if(!(that instanceof CTypePointing)) {
+                if(that instanceof CTypeIntegral) {
+                    return true;
+                }
                 return false;
             }
             

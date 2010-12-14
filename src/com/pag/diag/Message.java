@@ -28,6 +28,8 @@ public enum Message {
     N_LABEL_NOT_USED        (NOTE,          "The label '%%' was never used."),
     E_LABEL_UNKNOWN         (ERROR,         "The label '%%' was not defined in the function '%%'."),
     E_CASE_OUTSIDE_SWITCH   (ERROR,         "Case (case ...:) statements must be enclosed by a switch statement."),
+    E_BREAK_OUTSIDE_STAT    (ERROR,         "Break statements must be enclosed in either a loop (for,while,do..while) statement\n    or in a switch statement."),
+    E_CONTINUE_OUTSIDE_LOOP (ERROR,         "Continue statements must be enclodes in a loop (for,while,do..while) statement."),
     E_DEFAULT_OUTSIDE_SWITCH(ERROR,         "Default (default:) statements must be enclosed by a switch statement."),
     
     B_UNKNOWN_TYPEDEF_NAME  (BUG,           "The typedef name '%%' is not known."),

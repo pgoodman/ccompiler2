@@ -29,6 +29,9 @@ public class NameVisitor implements CodeVisitor {
     // used to detech invalid case statements
     private int switch_count = 0;
     
+    // number of loops we're in
+    private int loop_count = 0;
+    
     // if we're parsing function parameters, then how should we be looking
     // at those parameters?
     private boolean in_func_head = false;
@@ -579,6 +582,9 @@ public class NameVisitor implements CodeVisitor {
     }
 
     public void visit(CodeStatBreak cc) {
+        if(0 == switch_count && 0 == loop_count) {
+            env.diag.report(E_BREAK_OUTSIDE_STAT, cc);
+        }
     }
 
     public void visit(CodeStatCase cc) {
@@ -602,6 +608,9 @@ public class NameVisitor implements CodeVisitor {
     }
 
     public void visit(CodeStatContinue cc) {
+        if(0 == loop_count) {
+            env.diag.report(E_CONTINUE_OUTSIDE_LOOP, cc);
+        }
     }
 
     public void visit(CodeStatDefault cc) {
@@ -616,7 +625,9 @@ public class NameVisitor implements CodeVisitor {
     public void visit(CodeStatDo cc) {
         cc._scope = env.getScope();
         env.pushScope(func);
+        ++loop_count;
         cc._stat.acceptVisitor(this);
+        --loop_count;
         env.popScope();
         cc._test.acceptVisitor(this);
     }
@@ -641,7 +652,9 @@ public class NameVisitor implements CodeVisitor {
         }
         
         env.pushScope(func);
+        ++loop_count;
         cc._stat.acceptVisitor(this);
+        --loop_count;
         env.popScope();
     }
 
@@ -697,7 +710,9 @@ public class NameVisitor implements CodeVisitor {
         cc._scope = env.getScope();
         cc._test.acceptVisitor(this);
         env.pushScope(func);
+        ++loop_count;
         cc._stat.acceptVisitor(this);
+        --loop_count;
         env.popScope();
     }
 

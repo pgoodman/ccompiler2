@@ -44,6 +44,10 @@ public class CodeGenerator implements CodeVisitor {
     HashSet<String> declared_funcs = new HashSet<String>();
     Hashtable<String,String> const_table = new Hashtable<String,String>();
     
+    // stacks for keeping track of where we should break/continue to
+    LinkedList<String> break_stack = new LinkedList<String>();
+    LinkedList<String> continue_stack = new LinkedList<String>();
+    
     static boolean DEBUG = true;
     
     // basic interface for a code buffer
@@ -612,13 +616,11 @@ public class CodeGenerator implements CodeVisitor {
     public void visit(CodeDeclaratorParen cc) { }
     
     public void visit(CodeStatBreak cc) {
-        // TODO Auto-generated method stub
-        
+        br(b(cc), break_stack.element());
     }
     
     public void visit(CodeStatCase cc) {
-        // TODO Auto-generated method stub
-        
+        cc._stat.acceptVisitor(this);
     }
     
     public void visit(CodeStatCompound cc) {
@@ -633,13 +635,11 @@ public class CodeGenerator implements CodeVisitor {
     }
     
     public void visit(CodeStatContinue cc) {
-        // TODO Auto-generated method stub
-        
+        br(b(cc), continue_stack.element());
     }
     
     public void visit(CodeStatDefault cc) {
-        // TODO Auto-generated method stub
-        
+        cc._stat.acceptVisitor(this);
     }
     
     public void visit(CodeStatDo cc) {
@@ -764,6 +764,10 @@ public class CodeGenerator implements CodeVisitor {
             } else if(dt instanceof CTypeFloating) {
                 do_store = true;
             }
+        } else if(st instanceof CTypePointing) {
+            if(dt instanceof CTypeIntegral) {
+                do_store = true;
+            }
         }
         
         // bitcast if there are no primitives for the casting operation
@@ -781,7 +785,9 @@ public class CodeGenerator implements CodeVisitor {
         
         if(st instanceof CTypeIntegral) {
             if(dt instanceof CTypePointing) {
-                System.out.println("; !!!! TODO 1"); // TODO
+                buff.nl().append(new_val).append(" = inttoptr ")
+                    .append(st_str).append(" ").append(old_val)
+                    .append(" to ").append(dt_str);
             } else if(dt instanceof CTypeFloating) {
                 
                 CTypeIntegral it = (CTypeIntegral) st;
@@ -841,6 +847,12 @@ public class CodeGenerator implements CodeVisitor {
                         .append(old_val).append(")");
                 }*/
             }
+        } else if(st instanceof CTypePointing) {
+            if(dt instanceof CTypeIntegral) {
+                buff.nl().append(new_val).append(" = ptrtoint ")
+                    .append(st_str).append(" ").append(old_val)
+                    .append(" to ").append(dt_str);
+            }
         }
 
         store(buff, dt_str, new_val, cast);
@@ -860,7 +872,9 @@ public class CodeGenerator implements CodeVisitor {
         cc._test.acceptVisitor(this);
         String test_addr = temps.pop();
         
-        br(buff, op(buff, "icmp eq i32 1, ", load(buff, "i32", test_addr)), if_true, if_false);
+        br(buff, op(
+            buff, "icmp eq i32 1, ", load(buff, "i32", test_addr)
+        ), if_true, if_false);
         
         buff.label(if_true);
         cc._a.acceptVisitor(this);
