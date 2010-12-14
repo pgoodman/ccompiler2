@@ -9,6 +9,7 @@ package com.smwatt.comp;
 
 import java.util.ArrayList;
 import java.util.Hashtable;
+import java.util.LinkedList;
 import java.util.List;
 
 import com.pag.sym.Scope;
@@ -599,11 +600,14 @@ public class C {
     	
     	public void acceptVisitor(CodeVisitor v) { v.visit(this); }
     }
-    static public class CodeStatCase extends CodeStat {
+    static public abstract class CodeStatSwitched extends CodeStat {
+        public CodeStat        _stat;
+        public String          _label;
+    }
+    static public class CodeStatCase extends CodeStatSwitched {
     	
         public CodeExpr        _value;
-    	public CodeStat        _stat;
-    	public CodeStatSwitch  _switch;
+    	//public CodeStatSwitch  _switch;
     	
     	CodeStatCase(CodeExpr value, CodeStat stat) 
     	{ _value = value; _stat = stat; }
@@ -628,9 +632,7 @@ public class C {
     	
     	public void acceptVisitor(CodeVisitor v) { v.visit(this); }
     }
-    static public class CodeStatDefault extends CodeStat {
-    	public CodeStat _stat;
-    	
+    static public class CodeStatDefault extends CodeStatSwitched {    	
     	CodeStatDefault(CodeStat stat) { _stat = stat; }
     	
     	public void acceptVisitor(CodeVisitor v) { v.visit(this); }
@@ -713,6 +715,7 @@ public class C {
     static public class CodeStatSwitch extends CodeStat {
     	public CodeExpr _expr;
     	public CodeStat _stat;
+    	public LinkedList<CodeStatSwitched> _cases = new LinkedList<CodeStatSwitched>();
     	
     	CodeStatSwitch(CodeExpr expr, CodeStat stat) 
     	{ 

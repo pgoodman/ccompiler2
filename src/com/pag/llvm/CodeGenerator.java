@@ -322,7 +322,7 @@ public class CodeGenerator implements CodeVisitor {
             
             if(arg instanceof CodeId) {
                 arg_type = arg._type;
-                arg_name = (((CodeId) arg))._s;
+                arg_name = "%p$" + (((CodeId) arg))._s;
             } else {
                 CodeDeclaration decl = (CodeDeclaration) arg;
                 
@@ -343,8 +343,13 @@ public class CodeGenerator implements CodeVisitor {
                 .append(ir_type.toString(arg_type, true))
                 .append(" ").append(arg_name);
                 
-            
             sep = ", ";
+        }
+        
+        for(CodeDeclaration decl : cc._ldecl) {
+            for(CodeDeclarator dtor : decl._ldtor) {
+                useful_dtors.add(dtor);
+            }
         }
         
         code.append(") nounwind ssp {").indent();
@@ -366,6 +371,9 @@ public class CodeGenerator implements CodeVisitor {
         // make sure we have a return for void functions
         if(ft._retType instanceof CTypeVoid) {
             code.nl().append("ret void");
+        } else if(ft._retType instanceof CTypeIntegral) {
+            code.nl().append("ret ").append(ir_type.toString(ft._retType))
+                .append(" 0");
         }
         
         code.outdent();
@@ -565,6 +573,7 @@ public class CodeGenerator implements CodeVisitor {
     
     public void visit(CodeInitializerValue cc) {
         cc._value.acceptVisitor(this);
+        
         CodeBuffer buff = b(cc);
         String val = temps.pop();
         String var_type = temps.pop();
@@ -620,6 +629,9 @@ public class CodeGenerator implements CodeVisitor {
     }
     
     public void visit(CodeStatCase cc) {
+        CodeBuffer buff = b(cc);
+        br(buff, cc._label);
+        buff.label(cc._label);
         cc._stat.acceptVisitor(this);
     }
     
@@ -639,11 +651,39 @@ public class CodeGenerator implements CodeVisitor {
     }
     
     public void visit(CodeStatDefault cc) {
+        CodeBuffer buff = b(cc);
+        br(buff, cc._label);
+        buff.label(cc._label);
         cc._stat.acceptVisitor(this);
     }
     
     public void visit(CodeStatDo cc) {
-        // TODO Auto-generated method stub
+        String test_label = label();
+        String stat_label = label();
+        String done_label = label();
+        
+        CodeBuffer buff = b(cc);
+        
+        buff.nl().nl().append("; do statement");
+        
+        br(buff, stat_label);       
+        buff.label(stat_label);
+        break_stack.push(done_label);
+        continue_stack.push(test_label);
+        cc._stat.acceptVisitor(this);
+        break_stack.pop();
+        continue_stack.pop();
+        
+        br(buff, test_label);
+        buff.label(test_label);
+        cc._test.acceptVisitor(this);
+        br(
+            buff, 
+            op(buff, "icmp eq i32 1, ", load(buff, "i32", temps.pop())), 
+            stat_label, done_label
+        );
+        
+        buff.label(done_label);
         
     }
     
@@ -654,26 +694,97 @@ public class CodeGenerator implements CodeVisitor {
     }
     
     public void visit(CodeStatFor cc) {
-        // TODO Auto-generated method stub
+        String test_label = label();
+        String stat_label = label();
+        String cont_label = label();
+        String done_label = label();
         
+        CodeBuffer buff = b(cc);
+        
+        buff.nl().nl().append("; for statement");
+        
+        // initializer
+        if(null != cc._optInit) {
+            cc._optInit.acceptVisitor(this);
+        }
+        
+        // test
+        br(buff, test_label);
+        buff.label(test_label);
+        cc._test.acceptVisitor(this);
+        br(
+            buff, 
+            op(buff, "icmp eq i32 1, ", load(buff, "i32", temps.pop())), 
+            stat_label, done_label
+        );
+        
+        // body
+        buff.label(stat_label);
+        break_stack.push(done_label);
+        continue_stack.push(cont_label);
+        cc._stat.acceptVisitor(this);
+        break_stack.pop();
+        continue_stack.pop();
+        
+        // step
+        br(buff, cont_label);
+        buff.label(cont_label);
+        if(null != cc._optStep) {
+            cc._optStep.acceptVisitor(this);
+        }
+        br(buff, test_label);
+        
+        // done
+        buff.label(done_label);
     }
     
     public void visit(CodeStatGoto cc) {
-        // TODO Auto-generated method stub
-        
+        br(b(cc), label(cc._label._s));
     }
     
     public void visit(CodeStatIf cc) {
-        // TODO Auto-generated method stub
+        CodeBuffer buff = b(cc);
         
+        String if_true = label();
+        String if_false = label();
+        String done = label();
+                
+        buff.nl().nl().append("; if statement");
+        
+        cc._test.acceptVisitor(this);
+        String test_addr = temps.pop();
+        
+        // test
+        br(buff, op(
+            buff, "icmp eq i32 1, ", load(buff, "i32", test_addr)
+        ), if_true, if_false);
+        
+        // then
+        buff.label(if_true);
+        cc._stat.acceptVisitor(this);
+        br(buff, done);
+        
+        // else
+        buff.label(if_false);
+        if(null != cc._optElstat) {
+            cc._optElstat.acceptVisitor(this);
+        }
+        
+        br(buff, done);
+        buff.label(done);
     }
     
     public void visit(CodeStatLabeled cc) {
-        // TODO Auto-generated method stub
+        String label_name = label(cc._label._s);
+        CodeBuffer buff = b(cc);
         
+        br(buff, label_name);
+        buff.label(label_name);
     }
     
     public void visit(CodeStatReturn cc) {
+        b(cc).nl().nl().append("; return statement");
+        
         if(null == cc._optExpr 
         || cc._optExpr._type instanceof CTypeVoid) {
             code.nl().append("ret void");
@@ -687,13 +798,80 @@ public class CodeGenerator implements CodeVisitor {
     }
     
     public void visit(CodeStatSwitch cc) {
-        // TODO Auto-generated method stub
+                
+        CodeBuffer buff = b(cc);
+        buff.nl().nl().append("; switch statement");
         
+        String done_label = label();
+        String default_label = done_label;
+        
+        LinkedList<String> labels = new LinkedList<String>();
+        StringBuffer jumps = new StringBuffer(); 
+        
+        String val_type = ir_type.toString(cc._expr._type, true);
+        
+        // go build up the list of labels
+        for(CodeStatSwitched stat : cc._cases) {
+            String label = label();
+            labels.add(label);
+            
+            stat._label = label;
+            
+            if(stat instanceof CodeStatDefault) {
+                default_label = label;
+            } else {
+                CodeStatCase cstat = (CodeStatCase) stat;
+                jumps.append(" ");
+                jumps.append(val_type);
+                jumps.append(" ");
+                jumps.append(cstat._value._const_val.toString());
+                jumps.append(", label %");
+                jumps.append(label);
+            }
+        }
+        
+        // make the main switch statement
+        cc._expr.acceptVisitor(this);
+        String val = load(buff, val_type, temps.pop());
+        buff.nl().append("switch ").append(val_type).append(" ")
+            .append(val).append(", label %").append(default_label)
+            .append(" [").append(jumps.toString()).append("]");
+                
+        break_stack.push(done_label);
+        cc._stat.acceptVisitor(this);        
+        break_stack.pop();
+        
+        br(buff, done_label);
+        buff.label(done_label);
     }
     
     public void visit(CodeStatWhile cc) {
-        // TODO Auto-generated method stub
+        String test_label = label();
+        String stat_label = label();
+        String done_label = label();
         
+        CodeBuffer buff = b(cc);
+        
+        buff.nl().nl().append("; while statement");
+        
+        br(buff, test_label);
+        buff.label(test_label);
+        cc._test.acceptVisitor(this);
+        br(
+            buff, 
+            op(buff, "icmp eq i32 1, ", load(buff, "i32", temps.pop())), 
+            stat_label, done_label
+        );
+        
+        buff.label(stat_label);
+        break_stack.push(done_label);
+        continue_stack.push(test_label);
+        cc._stat.acceptVisitor(this);
+        break_stack.pop();
+        continue_stack.pop();
+        
+        br(buff, test_label);
+        buff.label(done_label);
     }
     
     public void visit(CodeExprAssignment cc) {
@@ -804,7 +982,10 @@ public class CodeGenerator implements CodeVisitor {
         String old_val = load(buff, st_str, temp);
         alloca(buff, dt_str, cast);
         
+        System.out.println("; " + new_val + " " + cc._expr);
+        
         if(st instanceof CTypeIntegral) {
+            CTypeIntegral ist = (CTypeIntegral) st;
             if(dt instanceof CTypePointing) {
                 buff.nl().append(new_val).append(" = inttoptr ")
                     .append(st_str).append(" ").append(old_val)
@@ -839,11 +1020,25 @@ public class CodeGenerator implements CodeVisitor {
                 }
                 
             } else if(dt instanceof CTypeIntegral) {
-                CTypeIntegral it = (CTypeIntegral) dt;
-                buff.nl().append(new_val).append(" = ")
-                    .append(-1 == it._signed ? "zext " : "sext ")
-                    .append(st_str).append(" ")
-                    .append(old_val).append(" to ").append(dt_str);
+                CTypeIntegral idt = (CTypeIntegral) dt;
+                
+                if(ist.sizeOf(env) > idt.sizeOf(env)) {
+                    String trunc_val = local();
+                    buff.nl().append(trunc_val).append(" = trunc ")
+                        .append(st_str).append(" ").append(old_val)
+                        .append(" to ").append(dt_str);
+                    st_str = dt_str;
+                    old_val = trunc_val;
+                }
+                
+                if(0 != st_str.compareTo(dt_str)) {
+                    buff.nl().append(new_val).append(" = ")
+                        .append(-1 == idt._signed ? "zext " : "sext ")
+                        .append(st_str).append(" ")
+                        .append(old_val).append(" to ").append(dt_str);
+                } else {
+                    new_val = old_val;
+                }
             }
         } else if(st instanceof CTypeFloating) {
             if(dt instanceof CTypeIntegral) {

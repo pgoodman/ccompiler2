@@ -9,11 +9,11 @@ import java.util.LinkedList;
 import com.pag.llvm.IRTypeBuilder;
 import com.pag.sym.CSymbol;
 import com.pag.sym.Env;
+import com.pag.sym.Scope;
 import com.pag.sym.Type;
 import com.pag.val.CompileTimeFloat;
 import com.pag.val.CompileTimeInteger;
 import com.pag.val.CompileTimeString;
-import com.smwatt.comp.CToken;
 import com.smwatt.comp.CTokenOperator;
 import com.smwatt.comp.CTokenType;
 import com.smwatt.comp.CTypeBuilder;
@@ -49,6 +49,7 @@ public class TypeInferenceVisitor implements CodeVisitor {
     
     private static CodeExpr NULL_POINTER;
     private static CodeExpr ZERO_INT;
+    private static CodeExpr LONG_ZERO_INT;
     private static CodeExpr ZERO_FLOAT;
     
     private final CType INVALID_TYPE;
@@ -68,7 +69,10 @@ public class TypeInferenceVisitor implements CodeVisitor {
         
         // basic constructions of substitution expressions
         ZERO_INT = new CodeIntegerConstant(0);
-        ZERO_INT._type = LONG_INT_TYPE;
+        ZERO_INT._type = INT_TYPE;
+        
+        LONG_ZERO_INT = new CodeIntegerConstant(0);
+        LONG_ZERO_INT._type = LONG_INT_TYPE;
         
         ZERO_FLOAT = new CodeFloatingConstant(0.0);
         ZERO_FLOAT._type = DOUBLE_TYPE;
@@ -94,6 +98,7 @@ public class TypeInferenceVisitor implements CodeVisitor {
         
         // initialize the scopes
         ZERO_INT._scope = env.getScope();
+        LONG_ZERO_INT._scope = env.getScope();
         ZERO_FLOAT._scope = env.getScope();
         NULL_POINTER._scope = env.getScope();
         
@@ -115,6 +120,7 @@ public class TypeInferenceVisitor implements CodeVisitor {
             NULL_POINTER 
         );
         ret._type = INT_TYPE;
+        ret._scope = expr._scope;
         return ret;
     }
     
@@ -134,6 +140,19 @@ public class TypeInferenceVisitor implements CodeVisitor {
             ZERO_FLOAT 
         );
         ret._type = INT_TYPE;
+        ret._scope = expr._scope;
+        return ret;
+    }
+    
+    private static CodeExpr intToBool(CodeExpr expr) {
+        
+        CodeExpr ret = new CodeExprInfix(
+            new CTokenOperator(CTokenType.NOT_EQUALS),
+            castTo(expr, LONG_INT_TYPE),
+            LONG_ZERO_INT
+        );
+        ret._type = INT_TYPE;
+        ret._scope = expr._scope;
         return ret;
     }
     
@@ -150,7 +169,7 @@ public class TypeInferenceVisitor implements CodeVisitor {
         } else if(expr._type instanceof CTypePointing) {
             return pointerToBool(expr);
         } else if(expr._type instanceof CTypeIntegral) {
-            return expr;
+            return intToBool(expr);
         }
         return null;
     }
@@ -918,11 +937,16 @@ public class TypeInferenceVisitor implements CodeVisitor {
                                 return false;
                             }
                             
+                            Scope ss = ls._list.get(0)._scope;
+                            
                             // add in the zeros
                             for(int i = 0; i < mult - ls_len; ++i) {
-                                ls._list.add(new CodeInitializerValue(
+                                CodeInitializerValue iv = new CodeInitializerValue(
                                     castTo(ZERO_INT, got_type)
-                                ));
+                                );
+                                iv._value._scope = ss;
+                                iv._scope = ss;
+                                ls._list.add(iv);
                             }
                         }
                         
@@ -1011,13 +1035,14 @@ public class TypeInferenceVisitor implements CodeVisitor {
 
     public void visit(CodeStatCase cc) {
         cc._value.acceptVisitor(this);
-        cc._switch = switch_stack.peek();
+        CodeStatSwitch sstat = switch_stack.peek();
         
         // bad type for case
-        if(!cc._switch._expr._type.canBeAssignedTo(cc._value._type)) {
+        if(!sstat._expr._type.canBeAssignedTo(cc._value._type)) {
+            
             env.diag.report(
                 E_CASE_SWITCH_DISAGREE, 
-                cc, cc._switch._expr.getSourcePosition().toString()
+                cc, sstat._expr.getSourcePosition().toString()
             );
         
         // make sure that the case expression can be evaluated at compile
@@ -1027,9 +1052,11 @@ public class TypeInferenceVisitor implements CodeVisitor {
                 public boolean apply(Env env, Code code) {
                     CodeStatCase cs = (CodeStatCase) node;
                     cs._value._const_val = env.interpret(cs._value);
-                    return false;
+                    return true;
                 }
             });
+            
+            sstat._cases.add(cc);
         }
         
         cc._stat.acceptVisitor(this);
@@ -1048,6 +1075,7 @@ public class TypeInferenceVisitor implements CodeVisitor {
 
     public void visit(CodeStatDefault cc) {
         cc._stat.acceptVisitor(this);
+        switch_stack.peek()._cases.add(cc);
     }
 
     public void visit(CodeStatDo cc) {

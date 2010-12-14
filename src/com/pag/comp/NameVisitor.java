@@ -582,6 +582,7 @@ public class NameVisitor implements CodeVisitor {
     }
 
     public void visit(CodeStatBreak cc) {
+        cc._scope = env.getScope();
         if(0 == switch_count && 0 == loop_count) {
             env.diag.report(E_BREAK_OUTSIDE_STAT, cc);
         }
@@ -608,12 +609,14 @@ public class NameVisitor implements CodeVisitor {
     }
 
     public void visit(CodeStatContinue cc) {
+        cc._scope = env.getScope();
         if(0 == loop_count) {
             env.diag.report(E_CONTINUE_OUTSIDE_LOOP, cc);
         }
     }
 
     public void visit(CodeStatDefault cc) {
+        cc._scope = env.getScope();
         if(0 == switch_count) {
             env.diag.report(E_DEFAULT_OUTSIDE_SWITCH, cc);
         } else {
