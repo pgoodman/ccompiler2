@@ -847,8 +847,37 @@ public class CodeGenerator implements CodeVisitor {
     }
     
     public void visit(CodeExprConditional cc) {
-        // TODO Auto-generated method stub
+        CodeBuffer buff = b(cc);
         
+        String if_true = label();
+        String if_false = label();
+        String done = label();
+        
+        String result_type = ir_type.toString(cc._type, true);
+        
+        buff.nl().nl().append("; conditional op");
+        
+        cc._test.acceptVisitor(this);
+        String test_addr = temps.pop();
+        
+        br(buff, op(buff, "icmp eq i32 1, ", load(buff, "i32", test_addr)), if_true, if_false);
+        
+        buff.label(if_true);
+        cc._a.acceptVisitor(this);
+        String true_val = load(buff, result_type, temps.pop());
+        br(buff, done);
+        
+        buff.label(if_false);
+        cc._b.acceptVisitor(this);
+        String false_val = load(buff, result_type, temps.pop());
+        br(buff, done);
+        
+        buff.label(done);
+        
+        temps.push(store(buff, result_type, op(
+            buff, "phi ", result_type, " [", true_val, ", %", 
+            if_true, "], [", false_val, ", %", if_false, "]"
+        ), alloca(buff, result_type, local())));
     }
     
     /**
@@ -933,7 +962,7 @@ public class CodeGenerator implements CodeVisitor {
                 
                 buff.label(done);
                 store(buff, result_type, binary(
-                    buff, "phi", result_type, "[1, %" + init +"]", "[" + rhs_val + ", %" + if_no +"]" 
+                    buff, "phi", "i32", "[1, %" + init +"]", "[" + rhs_val + ", %" + if_no +"]" 
                 ), res_addr);
                 temps.push(res_addr);
                 
@@ -957,7 +986,7 @@ public class CodeGenerator implements CodeVisitor {
                 
                 buff.label(done);
                 store(buff, result_type, binary(
-                    buff, "phi", result_type, "[0, %" + if_no +"]", "[" + rhs_val + ", %" + if_yes +"]" 
+                    buff, "phi", "i32", "[0, %" + if_no +"]", "[" + rhs_val + ", %" + if_yes +"]" 
                 ), res_addr);
                 temps.push(res_addr);
                 return;
