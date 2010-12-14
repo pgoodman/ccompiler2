@@ -391,8 +391,8 @@ public class TypeInferenceVisitor implements CodeVisitor {
                 if(!fall_through) {
                     
                     if(0 <= rhs_t._signed) {
-                        env.diag.report(E_SIGNED_SHIFT, cc);
-                        return;
+                        //env.diag.report(E_SIGNED_SHIFT, cc);
+                        //return;
                     }
                     
                     if(rhs_t._length > 0) {

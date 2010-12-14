@@ -1,6 +1,7 @@
 package com.pag.llvm;
 
 import java.util.HashSet;
+import java.util.Hashtable;
 import java.util.LinkedList;
 
 import com.pag.sym.CSymbol;
@@ -41,6 +42,7 @@ public class CodeGenerator implements CodeVisitor {
     
     // declared funcs, don't do any repeats
     HashSet<String> declared_funcs = new HashSet<String>();
+    Hashtable<String,String> const_table = new Hashtable<String,String>();
     
     static boolean DEBUG = true;
     
@@ -147,7 +149,11 @@ public class CodeGenerator implements CodeVisitor {
     }
     
     private String label() {
-        return "Label" + Integer.toString(next_temp++);
+        return "Label." + Integer.toString(next_temp++);
+    }
+    
+    private String label(String id) {
+        return "Label." + id;
     }
     
     /**
@@ -254,6 +260,15 @@ public class CodeGenerator implements CodeVisitor {
     
     private void br(CodeBuffer buff, String label) {
         buff.nl().append("br label %").append(label);
+    }
+    
+    private String op(CodeBuffer buff, String ... parts) {
+        String val = local();
+        buff.nl().append(val).append(" = ");
+        for(String part : parts) {
+            buff.append(part);
+        }
+        return val;
     }
         
     /**
@@ -448,10 +463,17 @@ public class CodeGenerator implements CodeVisitor {
     }
     
     private void visitConstant(CodeExpr cc) {
+        String const_val = constant(cc);
         String type = ir_type.toString(cc._type);
-        String val = global();
-        gdecl.nl().append(val).append(" = internal constant ")
-            .append(type).append(" ").append(constant(cc));
+        String key = type + ":" + const_val;
+        
+        String val = const_table.get(key);
+        if(null == val) {
+            val = global();
+            gdecl.nl().append(val).append(" = internal constant ")
+                .append(type).append(" ").append(const_val);
+            const_table.put(key, val);
+        }
         temps.push(val);
     }
     
@@ -700,20 +722,25 @@ public class CodeGenerator implements CodeVisitor {
         String st_str = ir_type.toString(st, true);
         String dt_str = ir_type.toString(dt, true);
         
-        // no need to cast these types; they are structurally the same.
+        // these types are structurally the same.
         if(0 == st_str.compareTo(dt_str)) {
+            /*
+            // ... but one is signed and the other isn't
             if(st instanceof CTypeIntegral && dt instanceof CTypeIntegral) {
+                CTypeIntegral ist = (CTypeIntegral) st;
+                CTypeIntegral idt = (CTypeIntegral) dt;
+                
                 //System.out.println(st + " " + (((CTypeIntegral) st)._signed) + " -> " + dt + " " + (((CTypeIntegral) dt)._signed));                
-                if((((CTypeIntegral) st)._signed < 0) 
-                != (((CTypeIntegral) dt)._signed < 0)) {
-                    System.out.println(st + " -> " + dt);
+                if((ist._signed < 0) != (idt._signed < 0)) {
+                    System.out.println(st + " " + ist._signed + " -> " + dt + " " + idt._signed);
                     // different signs, need to cast
                 } else {
                     return;
                 }
             } else {
                 return;
-            }
+            }*/
+            return;
         }
         
         String temp = temps.pop();
@@ -888,7 +915,6 @@ public class CodeGenerator implements CodeVisitor {
         
         // deal with the short-circuiting operators
         switch(cc._op._type) {
-            // relational + boolean contexts
             case CTokenType.VBAR_VBAR: {
                 String init = label();
                 String if_no = label();
@@ -942,37 +968,115 @@ public class CodeGenerator implements CodeVisitor {
         right_addr = temps.pop();
         
         right = load(buff, right_type, right_addr);
-        String result = alloca(buff, result_type, local());
+        String result_addr = alloca(buff, result_type, local());
+        String result = null;
+        String sign_prefix = "";
+        String type_prefix = "";
+        String ptr_prefix = "i";
+        String comp_prefix = "u";
+        
+        if(ta instanceof CTypeIntegral) {
+            CTypeIntegral it = (CTypeIntegral) ta;
+            sign_prefix = (-1 == it._signed) ? "u" : "s";
+            comp_prefix = sign_prefix;
+        } else {
+            type_prefix = "f";
+            ptr_prefix = "f";
+        }
         
         switch(cc._op._type) {
             case CTokenType.VBAR:
+                result = binary(buff, "or", result_type, left, right);
+                break;
                 
             case CTokenType.XOR:
-            case CTokenType.AMP:
-            case CTokenType.MOD:
+                result = binary(buff, "xor", result_type, left, right);
+                break;
                 
+            case CTokenType.AMP:
+                result = binary(buff, "and", result_type, left, right);
+                break;
+                
+            case CTokenType.MOD:
+                result = binary(
+                    buff, 
+                    sign_prefix + type_prefix + "rem", 
+                    result_type, left, right
+                );
+                break;
             
             case CTokenType.LSH:
+                result = binary(buff, "shl", result_type, left, right);
+                break;
+                
             case CTokenType.RSH:
+                if(0 == "u".compareTo(sign_prefix)) {
+                    result = binary(buff, "lshr", result_type, left, right);
+                } else {
+                    result = binary(buff, "ashr", result_type, left, right);
+                }
+                break;
                 
             case CTokenType.PLUS:
+                result = binary(buff, type_prefix + "add", result_type, left, right);
+                break;
                 
             case CTokenType.MINUS:
+                result = binary(buff, type_prefix + "sub", result_type, left, right);
+                break;
                 
             case CTokenType.STAR:
+                result = binary(buff, type_prefix + "mul", result_type, left, right);
+                break;
+                
             case CTokenType.SLASH:
-                
-            
-                
+                result = binary(
+                    buff, 
+                    sign_prefix + type_prefix + "div", 
+                    result_type, left, right
+                );
+                break;                
             
             // relational
             case CTokenType.EQUALS:
+                result = op(buff, "zext i1 ", 
+                    binary(buff, ptr_prefix + "cmp eq", left_type, left, right), 
+                    " to i32"
+                );
+                break;
             case CTokenType.NOT_EQUALS:
+                result = op(buff, "zext i1 ", 
+                    binary(buff, ptr_prefix + "cmp ne", left_type, left, right), 
+                    " to i32"
+                );
+                break;
             case CTokenType.LT:
+                result = op(buff, "zext i1 ", 
+                    binary(buff, ptr_prefix + "cmp " + comp_prefix + "lt", left_type, left, right), 
+                    " to i32"
+                );
+                break;
             case CTokenType.GT:
+                result = op(buff, "zext i1 ", 
+                    binary(buff, ptr_prefix + "cmp " + comp_prefix + "gt", left_type, left, right), 
+                    " to i32"
+                );
+                break;
             case CTokenType.LT_EQ:
+                result = op(buff, "zext i1 ", 
+                    binary(buff, ptr_prefix + "cmp " + comp_prefix + "le", left_type, left, right), 
+                    " to i32"
+                );
+                break;
             case CTokenType.GT_EQ:
+                result = op(buff, "zext i1 ", 
+                    binary(buff, ptr_prefix + "cmp " + comp_prefix + "ge", left_type, left, right), 
+                    " to i32"
+                );
+                break;
         }
+        store(buff, result_type, result, result_addr);
+        temps.push(result_addr);
     }
     
     public void visit(CodeExprParen cc) {
