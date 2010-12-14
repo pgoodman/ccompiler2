@@ -217,16 +217,22 @@ public class ExpressionInterpreterVisitor implements CodeVisitor {
             return;
         }
         
-        if(cc._type instanceof CTypeIntegral
-        && cc._expr._type instanceof CTypeFloating) {
-            cc._const_val = new CompileTimeInteger(
-                (int) ((CompileTimeFloat) cc._expr._const_val).value
-            );
-        } else if(cc._type instanceof CTypeFloating
-               && cc._expr._type instanceof CTypeIntegral) {
-            cc._const_val = new CompileTimeFloat(
-                (double) ((CompileTimeInteger) cc._expr._const_val).value
-            );
+        if(cc._type instanceof CTypeIntegral) {
+            if(cc._expr._type instanceof CTypeFloating) {
+                cc._const_val = new CompileTimeInteger(
+                    (int) ((CompileTimeFloat) cc._expr._const_val).value
+                );
+            } else if(cc._expr._type instanceof CTypeIntegral) {
+                cc._const_val = cc._expr._const_val;
+            }
+        } else if(cc._type instanceof CTypeFloating) {
+            if(cc._expr._type instanceof CTypeIntegral) {
+                cc._const_val = new CompileTimeFloat(
+                    (double) ((CompileTimeInteger) cc._expr._const_val).value
+                );
+            } else if(cc._expr._type instanceof CTypeFloating) {
+                cc._const_val = cc._expr._const_val;
+            }
         }
     }
     

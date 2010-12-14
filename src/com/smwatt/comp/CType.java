@@ -268,6 +268,11 @@ public abstract class CType {
         }
     }
     
+    /**
+     * The purpose of this type is to fail loudly.
+     * @author petergoodman
+     *
+     */
     public static class CTypeInvalid extends CType { 
         
         public CTypeInvalid() {
@@ -294,6 +299,50 @@ public abstract class CType {
         @Override
         public boolean canBePromotedTo(CType that) {
             return false;
+        }
+
+        @Override
+        public CType copy() {
+            return this;
+        }
+
+        @Override
+        public int alignAt() {
+            return 1;
+        }
+    }
+    
+    /**
+     * The purpose of this type is to silently fail.
+     * @author petergoodman
+     *
+     */
+    public static class CTypeBase extends CType { 
+        
+        public CTypeBase() {
+            super();
+        }
+        
+        public void acceptVisitor(CTypeVisitor v) { v.visit(this); }
+
+        @Override
+        public int sizeOf(Env e) {
+            return 1;
+        }
+
+        @Override
+        public boolean canBeAssignedTo(CType that) {
+            return true;
+        }
+
+        @Override
+        public boolean canBeCastTo(CType that) {
+            return true;
+        }
+
+        @Override
+        public boolean canBePromotedTo(CType that) {
+            return true;
         }
 
         @Override
@@ -781,6 +830,9 @@ public abstract class CType {
 
         @Override
         public int alignAt() {
+            if(0 == _fields.size()) {
+                return 0;
+            }
             return _fields.get(0)._type.alignAt();
         }
     }

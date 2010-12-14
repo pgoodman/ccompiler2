@@ -3,9 +3,11 @@ package com.pag.comp;
 import static com.smwatt.comp.C.*;
 import static com.pag.diag.Message.*;
 
+import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.LinkedList;
 
+import com.pag.diag.Reporter;
 import com.pag.llvm.IRTypeBuilder;
 import com.pag.sym.CSymbol;
 import com.pag.sym.Env;
@@ -19,6 +21,7 @@ import com.smwatt.comp.CTokenType;
 import com.smwatt.comp.CTypeBuilder;
 import com.smwatt.comp.CTypePrinter;
 import com.smwatt.comp.CType;
+import com.smwatt.comp.SourcePosition;
 import com.smwatt.comp.C.Code;
 import com.smwatt.comp.C.CodeDeclaration;
 import com.smwatt.comp.CType.CTypePointing;
@@ -582,6 +585,9 @@ public class TypeInferenceVisitor implements CodeVisitor {
         CTypeFunction tt = (CTypeFunction) cc._type;
         
         CodeDeclaratorFunction func = (CodeDeclaratorFunction) cc._head;
+        
+        Hashtable<String,SourcePosition> seen_params = new Hashtable<String,SourcePosition>();
+        
         for(Code code : func._argl) {
             
             // make sure we're not mixing things
@@ -609,9 +615,16 @@ public class TypeInferenceVisitor implements CodeVisitor {
             // get the types in the right order
             } else if(code instanceof CodeId) {
                 CodeId param_id = (CodeId) code;
+                SourcePosition pos = seen_params.get(param_id._s);
+                if(null != pos) {
+                    env.diag.report(E_PARAM_SHADOW, param_id, param_id._s, pos.toString());
+                    continue;
+                }
+                
                 CType param_type = params.get(param_id._s);
                 tt._argTypes.add(param_type);
                 code._type = param_type;
+                seen_params.put(param_id._s, param_id.getSourcePosition());
             }
         }
         
@@ -741,7 +754,20 @@ public class TypeInferenceVisitor implements CodeVisitor {
 
     public void visit(CodeIntegerConstant cc) {
         cc._type = new CTypeInt();
-        cc._const_val = new CompileTimeInteger(Integer.parseInt(cc._s));
+        int val = 0;
+        
+        // handle different bases of integral constants
+        if('0' != cc._s.charAt(0) || 0 == "0".compareTo(cc._s)) {
+            val = Integer.parseInt(cc._s);
+        } else {
+            if('x' == cc._s.charAt(1) || 'X' == cc._s.charAt(1)) {
+                val = Integer.parseInt(cc._s.substring(2), 16);
+            } else {
+                val = Integer.parseInt(cc._s.substring(1), 8);
+            }
+        }
+        
+        cc._const_val = new CompileTimeInteger(val);
     }
 
     public void visit(CodeFloatingConstant cc) {
@@ -1512,6 +1538,28 @@ public class TypeInferenceVisitor implements CodeVisitor {
         
         // could be a function name
         if(!(cc._fun._type instanceof CTypeFunctionPointer)) {
+            
+            if(cc._fun instanceof CodeExprId) {
+                
+                cc._type = new CTypeBase();
+                
+                CSymbol sym = env.getSymbol(((CodeExprId) cc._fun)._id._s);
+                
+                // we've found a function name, but we haven't checked that
+                // function yet; add in a phase to re-check the function
+                // and we'll assume for now that it's correct.
+                if(Type.FUNC_DECL == sym.type || Type.FUNC_DEF == sym.type) {
+                    
+                    env.addPhase(new ParseTreeNodePhase(cc, this) {
+                        public boolean apply(Env env, Code code) {
+                            visitor.visit(code);
+                            return !Reporter.errorReported();
+                        }
+                    });
+                    return;
+                }
+            }
+            
             env.diag.report(E_CALL_FUNC_PTR, cc);
             return;
         }

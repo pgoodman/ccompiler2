@@ -66,7 +66,8 @@ public class Reporter {
             format = format.replaceFirst("%%", arg.toString());
         }
         
-        return msg.type + ": " + (null != pos ? pos.toString() : "") + "\n    " + format + "\n\n";
+        String report = "; " + msg.type + ": " + (null != pos ? pos.toString() : "") + "\n    " + format;
+        return report.replaceAll("\n", "\n; ") + "\n\n";
     }
     
     /**

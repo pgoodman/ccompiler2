@@ -8,6 +8,7 @@ import com.pag.diag.*;
 public class Question1 {
     public static void main(String[] args) {        
         Compiler.run(args, new MessageHandler() {
+                        
             public void report(Message msg, SourcePosition pos, Object ... args) {
                 Reporter.reportNow(msg, pos, args);
                 

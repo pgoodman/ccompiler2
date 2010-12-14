@@ -332,7 +332,6 @@ public class CodeGenerator implements CodeVisitor {
                 }
             }
             
-
             code.append(sep)
                 .append(ir_type.toString(arg_type, true))
                 .append(" ").append(arg_name);

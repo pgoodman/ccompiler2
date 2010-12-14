@@ -54,7 +54,11 @@ public class IRTypeBuilder implements CTypeVisitor {
     }
     
     public void visit(CType ct) {
-        ct.acceptVisitor(this);
+        if(null == ct) {
+            parts.push("i32");
+        } else {
+            ct.acceptVisitor(this);
+        }
     }
     
     public void visit(CTypeInvalid ct) { }

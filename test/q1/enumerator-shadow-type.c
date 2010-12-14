@@ -2,5 +2,5 @@
 typedef int foo;
 
 enum {
-    foo /* compile error */
+    foo /* parse error */
 };
